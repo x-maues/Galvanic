@@ -13,6 +13,12 @@ Galvanic is a margin account where that cannot happen — and, more importantly,
 you can *watch* it not happen, against the alternative, on the same account, in the
 same minute.
 
+## Presentation
+
+[![View the Galvanic presentation](https://drive.google.com/thumbnail?id=1R0SHEwWW0wn1-kKg4dKoOLDoOi6GRVvz&sz=w1200)](https://drive.google.com/file/d/1R0SHEwWW0wn1-kKg4dKoOLDoOi6GRVvz/view?usp=sharing)
+
+[Open the presentation in Google Drive](https://drive.google.com/file/d/1R0SHEwWW0wn1-kKg4dKoOLDoOi6GRVvz/view?usp=sharing)
+
 ---
 
 ## The one thing to look at
