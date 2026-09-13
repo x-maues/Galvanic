@@ -1,7 +1,7 @@
 {
   "schedule": "0 */1 * * * *",
   "positionApiUrl": "http://127.0.0.1:8788/firewall-margin/position",
-  "exposureApiUrl": "http://127.0.0.1:8790/firewall-margin/exposure?account=0x1111111111111111111111111111111111111111",
+  "exposureApiUrl": "http://127.0.0.1:8790/firewall-margin/exposure?account=0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602",
   "secretsIds": {
     "minHealthFactorId": "MIN_HEALTH_FACTOR",
     "liquidationLtvThresholdId": "LIQUIDATION_LTV_THRESHOLD",
@@ -11,7 +11,7 @@
   "onchain": {
     "enabled": false,
     "chainSelectorName": "ethereum-testnet-sepolia",
-    "executorAddress": "0x000000000000000000000000000000000000dEaD",
-    "account": "0x1111111111111111111111111111111111111111"
+    "executorAddress": "0x7dcD0E11a9C5e403CA109304a283732D71024029",
+    "account": "0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602"
   }
 }

@@ -34,11 +34,22 @@ export async function POST() {
   const home = os.homedir();
   const PATH = `${path.join(home, ".cre/bin")}:${path.join(home, ".bun/bin")}:${process.env.PATH}`;
 
+  // Deliberately NOT `...process.env` here: this Next.js process loads the repo-root
+  // .env (see lib/env.ts), which includes placeholder values like CRE_API_KEY=xxxx.
+  // The CRE CLI treats a *present* CRE_API_KEY as a real credential and tries to
+  // authenticate with it, breaking the unauthenticated local `simulate` path entirely
+  // (confirmed: same command succeeds with the var unset, fails with the placeholder
+  // set). Give the subprocess a minimal, explicit environment instead.
+  const childEnv: NodeJS.ProcessEnv = {
+    PATH,
+    HOME: home,
+  };
+
   try {
     const { stdout, stderr } = await execFileAsync(
       "cre",
       ["workflow", "simulate", "firewall-margin", "--target", "staging-settings", "--non-interactive", "--trigger-index", "0"],
-      { cwd, env: { ...process.env, PATH }, timeout: 60_000 }
+      { cwd, env: childEnv, timeout: 60_000 }
     );
 
     const verdict = parseVerdict(stdout);
