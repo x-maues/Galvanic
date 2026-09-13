@@ -55,7 +55,8 @@ function Sidebar() {
     <aside className="w-full md:w-60 shrink-0 md:h-screen md:sticky md:top-0 border-b md:border-b-0 md:border-r border-line/60 flex md:flex-col justify-between">
       <div>
         <Link href="/" className="flex items-center gap-2.5 px-6 py-5">
-          <div className="h-2.5 w-2.5 bg-signal rounded-sm" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-mark.png" alt="" className="h-5 w-auto" />
           <span className="mono text-xs uppercase tracking-[0.2em] text-paper/80">Galvanic</span>
         </Link>
         <nav className="flex md:flex-col gap-1 px-3 pb-4 overflow-x-auto md:overflow-visible">

@@ -1,6 +1,6 @@
 <img src="logo.png" alt="Galvanic" width="72" />
 
-# Galvanic
+# Galvanic (ETHOnline 2026)
 
 ### Cross-margin, without cross-contamination.
 

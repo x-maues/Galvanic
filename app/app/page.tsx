@@ -2,31 +2,354 @@ import fs from "fs";
 import Link from "next/link";
 import { env } from "@/lib/env";
 
-function readHederaEvidence() {
-  try { return JSON.parse(fs.readFileSync(env.hederaEvidencePath, "utf8")) as { bondAddress: string; bondHashscan: string; asset: { name: string; symbol: string } }; } catch { return null; }
+function hederaEvidence() {
+  try {
+    return JSON.parse(fs.readFileSync(env.hederaEvidencePath, "utf8")) as {
+      bondAddress: string;
+      bondHashscan: string;
+      asset: { name: string; symbol: string };
+      corporateAction?: { ratePct: number };
+    };
+  } catch {
+    return null;
+  }
 }
 
-function Chip({ children }: { children: React.ReactNode }) { return <span className="mono text-[10px] uppercase tracking-[0.14em] border border-line px-2.5 py-1.5 text-paper/55 rounded-sm">{children}</span>; }
-
-function ProductPanel() {
-  return <div className="border border-line bg-[#0d0d0d] shadow-2xl shadow-black/30"><div className="flex items-center justify-between border-b border-line/70 px-4 py-3"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-safe" /><span className="mono text-[10px] uppercase tracking-[0.16em] text-paper/45">Live account view</span></div><span className="mono text-[10px] text-paper/25">ACCOUNT / 0x4A30…0602</span></div><div className="grid md:grid-cols-[1.05fr_0.95fr] divide-y md:divide-y-0 md:divide-x divide-line/70"><div className="p-5 md:p-7"><div className="flex items-center justify-between mb-7"><div><p className="mono text-[10px] uppercase tracking-[0.14em] text-paper/35">Account posture</p><p className="text-lg font-medium mt-1">Stable across domains</p></div><span className="mono text-xs text-safe border border-safe/30 bg-safe/10 px-2 py-1">HEALTHY</span></div><div className="grid grid-cols-2 gap-5"><div><p className="text-xs text-paper/35">Health factor</p><p className="mono text-3xl mt-1">1.62</p><p className="text-xs text-safe mt-1">Within policy</p></div><div><p className="text-xs text-paper/35">Protected balance</p><p className="mono text-3xl mt-1">1,000</p><p className="text-xs text-paper/35 mt-1">FWM-NOTE · Hedera</p></div></div><div className="mt-8 border-t border-line/70 pt-4 flex items-center justify-between"><span className="text-xs text-paper/35">Next policy evaluation</span><span className="mono text-xs text-paper/60">in 00:58</span></div></div><div className="p-5 md:p-7"><div className="flex items-center gap-2 mb-5"><span className="h-1.5 w-1.5 rounded-full bg-signal" /><p className="mono text-[10px] uppercase tracking-[0.14em] text-paper/40">Confidential decision path</p></div><div className="space-y-4"><div className="flex gap-3"><span className="mono text-[10px] text-paper/30 pt-0.5">01</span><div><p className="text-sm">Live market exposure</p><p className="text-xs text-paper/35 mt-1">The Graph · 4 standardized markets</p></div></div><div className="h-px bg-line/70 ml-6" /><div className="flex gap-3"><span className="mono text-[10px] text-paper/30 pt-0.5">02</span><div><p className="text-sm">Private policy evaluation</p><p className="text-xs text-paper/35 mt-1">Chainlink CRE · Nitro TEE</p></div></div><div className="h-px bg-line/70 ml-6" /><div className="flex gap-3"><span className="mono text-[10px] text-paper/30 pt-0.5">03</span><div><p className="text-sm">Selective action</p><p className="text-xs text-paper/35 mt-1">Sepolia only · Hedera unreachable</p></div></div></div><div className="mt-7 border border-safe/20 bg-safe/[0.04] p-3 flex items-center gap-3"><span className="h-2 w-2 rounded-full bg-safe" /><span className="text-xs text-paper/60">No active protection events</span></div></div></div></div>;
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return <span className="mono text-[10px] uppercase tracking-[0.2em] text-paper/35">{children}</span>;
 }
 
-function Capability({ number, title, body, label }: { number: string; title: string; body: string; label: string }) { return <div className="border-t border-line/70 pt-5 flex flex-col gap-3"><div className="flex justify-between"><span className="mono text-[10px] text-paper/25">{number}</span><span className="mono text-[10px] uppercase tracking-widest text-paper/35">{label}</span></div><h3 className="text-lg font-medium tracking-tight">{title}</h3><p className="text-sm text-paper/45 leading-relaxed">{body}</p></div>; }
+function SplitPanel() {
+  const rows = [
+    { label: "Your ETH", pooled: "sold", firewall: "sold", pooledBad: true, firewallBad: true },
+    { label: "Your bond", pooled: "sold", firewall: "untouched", pooledBad: true, firewallBad: false },
+  ];
+  return (
+    <div className="border border-line bg-[#0d0d0d] shadow-2xl shadow-black/40">
+      <div className="flex items-center gap-2 border-b border-line/70 px-4 py-3">
+        <span className="h-1.5 w-1.5 rounded-full bg-signal pulse" />
+        <span className="mono text-[10px] uppercase tracking-[0.16em] text-paper/45">ETH just fell 92%</span>
+      </div>
+      <div className="grid grid-cols-[1.1fr_1fr_1fr]">
+        <div className="p-4 md:p-5 border-r border-line/70">
+          <span className="mono text-[10px] uppercase tracking-widest text-paper/25">What you held</span>
+        </div>
+        <div className="p-4 md:p-5 border-r border-line/70">
+          <span className="mono text-[10px] uppercase tracking-widest text-paper/40">Everywhere else</span>
+        </div>
+        <div className="p-4 md:p-5 bg-safe/[0.03]">
+          <span className="mono text-[10px] uppercase tracking-widest text-safe/80">Galvanic</span>
+        </div>
+        {rows.map((r) => (
+          <div key={r.label} className="contents">
+            <div className="p-4 md:p-5 border-t border-r border-line/70 text-sm text-paper/70">{r.label}</div>
+            <div className={`p-4 md:p-5 border-t border-r border-line/70 mono text-sm ${r.pooledBad ? "text-signal" : "text-safe"}`}>
+              {r.pooled}
+            </div>
+            <div className={`p-4 md:p-5 border-t border-line/70 bg-safe/[0.03] mono text-sm ${r.firewallBad ? "text-signal" : "text-safe"}`}>
+              {r.firewall}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-line/70 px-4 md:px-5 py-4">
+        <p className="text-xs text-paper/45 leading-relaxed">
+          Your bond never moved in price. It was sold to cover somebody else&apos;s problem —
+          your ETH. That is the default behaviour of every margin account in crypto today.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Step({ n, title, body }: { n: string; title: string; body: string }) {
+  return (
+    <div className="flex gap-4">
+      <span className="mono text-[10px] text-paper/25 pt-1.5 shrink-0">{n}</span>
+      <div>
+        <h3 className="text-base font-medium">{title}</h3>
+        <p className="text-sm text-paper/45 leading-relaxed mt-1.5">{body}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function Landing() {
-  const hedera = readHederaEvidence();
-  return <main className="min-h-screen overflow-hidden"><nav className="max-w-7xl mx-auto px-6 lg:px-10 py-6 flex items-center justify-between"><Link href="/" className="flex items-center gap-3"><span className="h-3 w-3 bg-signal rounded-sm" /><span className="mono text-xs uppercase tracking-[0.22em] text-paper/75">Galvanic</span></Link><div className="hidden md:flex items-center gap-7 text-sm text-paper/45"><a href="#product" className="hover:text-paper">Product</a><a href="#how-it-works" className="hover:text-paper">How it works</a><a href="#infrastructure" className="hover:text-paper">Infrastructure</a></div><Link href="/dashboard" className="mono text-[11px] uppercase tracking-wide border border-signal text-signal rounded-sm px-4 py-2.5 hover:bg-signal/10">Open dashboard →</Link></nav>
+  const hedera = hederaEvidence();
 
-    <section className="max-w-7xl mx-auto px-6 lg:px-10 pt-20 md:pt-28 pb-20"><div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-14 xl:gap-24 items-center"><div className="flex flex-col items-start gap-7"><div className="flex items-center gap-3"><span className="h-1.5 w-1.5 bg-signal rounded-full pulse" /><span className="mono text-[10px] uppercase tracking-[0.18em] text-paper/40">Isolated collateral. Confidential decisions.</span></div><h1 className="text-5xl md:text-7xl font-semibold tracking-[-0.05em] leading-[0.94] max-w-2xl">Know what can move before anything moves.</h1><p className="text-base md:text-lg text-paper/50 leading-relaxed max-w-xl">Galvanic gives risk teams a live operating view of volatile and protected collateral—then evaluates liquidation policy privately, before a single action crosses a custody boundary.</p><div className="flex flex-wrap gap-3"><Link href="/dashboard" className="mono text-xs uppercase tracking-wide border border-signal bg-signal/10 text-signal rounded-sm px-5 py-3 hover:bg-signal/20">Open dashboard →</Link><a href="#how-it-works" className="mono text-xs uppercase tracking-wide border border-line text-paper/60 rounded-sm px-5 py-3 hover:bg-white/5">See the operating model</a></div><div className="flex flex-wrap gap-2 pt-1"><Chip>Hedera ATS</Chip><Chip>The Graph</Chip><Chip>Chainlink CRE</Chip></div></div><div id="product"><ProductPanel /></div></div></section>
+  return (
+    <main className="min-h-screen">
+      <nav className="max-w-6xl mx-auto px-6 lg:px-10 py-6 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-mark.png" alt="" className="h-6 w-auto" />
+          <span className="mono text-xs uppercase tracking-[0.22em] text-paper/75">Galvanic</span>
+        </Link>
+        <div className="hidden md:flex items-center gap-8 text-sm text-paper/45">
+          <a href="#problem" className="hover:text-paper">The problem</a>
+          <a href="#how" className="hover:text-paper">How it works</a>
+          <a href="#proof" className="hover:text-paper">Proof</a>
+        </div>
+        <Link
+          href="/dashboard"
+          className="mono text-[11px] uppercase tracking-wide border border-signal text-signal rounded-sm px-4 py-2.5 hover:bg-signal/10"
+        >
+          Open the app →
+        </Link>
+      </nav>
 
-    <section className="border-y border-line/60 bg-white/[0.02]"><div className="max-w-7xl mx-auto px-6 lg:px-10 py-5 flex flex-col md:flex-row md:items-center gap-4 md:gap-12"><span className="mono text-[10px] uppercase tracking-[0.16em] text-paper/30">Built for real operations</span><div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-paper/50"><span><i className="inline-block h-1.5 w-1.5 rounded-full bg-safe mr-2" />Protected assets stay protected</span><span><i className="inline-block h-1.5 w-1.5 rounded-full bg-signal mr-2" />Liquid risk stays actionable</span><span><i className="inline-block h-1.5 w-1.5 rounded-full bg-paper/30 mr-2" />Policy stays private</span></div></div></section>
+      <section className="max-w-6xl mx-auto px-6 lg:px-10 pt-16 md:pt-24 pb-20">
+        <div className="grid lg:grid-cols-[0.95fr_1.05fr] gap-14 xl:gap-20 items-center">
+          <div className="flex flex-col items-start gap-7">
+            <Eyebrow>Borrow against real-world assets</Eyebrow>
+            <h1 className="text-5xl md:text-6xl font-semibold tracking-[-0.04em] leading-[0.98]">
+              Your bond shouldn&apos;t be sold because your ETH crashed.
+            </h1>
+            <p className="text-base md:text-lg text-paper/50 leading-relaxed max-w-lg">
+              Galvanic lets you borrow against a tokenized bond and volatile crypto at the
+              same time — and guarantees a crypto crash can never reach the bond. Not by
+              policy. By construction.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/dashboard"
+                className="mono text-xs uppercase tracking-wide border border-signal bg-signal/10 text-signal rounded-sm px-5 py-3 hover:bg-signal/20"
+              >
+                See it happen live →
+              </Link>
+              <a
+                href="#how"
+                className="mono text-xs uppercase tracking-wide border border-line text-paper/60 rounded-sm px-5 py-3 hover:bg-white/5"
+              >
+                How it works
+              </a>
+            </div>
+          </div>
+          <SplitPanel />
+        </div>
+      </section>
 
-    <section id="how-it-works" className="max-w-7xl mx-auto px-6 lg:px-10 py-24"><div className="max-w-2xl mb-14"><span className="mono text-[10px] uppercase tracking-[0.18em] text-signal/80">The operating model</span><h2 className="text-3xl md:text-5xl font-semibold tracking-tight mt-4">A risk workflow designed around boundaries.</h2><p className="text-paper/45 leading-relaxed mt-5">Most collateral systems make isolation a policy choice inside one pool. Galvanic makes the boundary visible, auditable, and structural.</p></div><div className="grid md:grid-cols-3 gap-10"><Capability number="01" label="Observe" title="See the whole exposure picture" body="A single account view joins the Sepolia liquid position with live, standardized lending data across external protocols." /><Capability number="02" label="Evaluate" title="Keep policy out of the public path" body="Private thresholds and raw risk inputs are evaluated inside a Chainlink CRE confidential workflow. The operating team sees the decision, not the secrets." /><Capability number="03" label="Act" title="Move only what is allowed to move" body="A signed decision can act on the liquid crypto leg. The Hedera asset has no bridge or contract path into the liquidation flow." /></div></section>
+      <section id="problem" className="border-y border-line/60 bg-white/[0.015]">
+        <div className="max-w-6xl mx-auto px-6 lg:px-10 py-20 md:py-24">
+          <div className="max-w-3xl">
+            <Eyebrow>The problem</Eyebrow>
+            <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mt-4">
+              Put two assets in one account and you quietly agree to something.
+            </h2>
+            <div className="mt-8 flex flex-col gap-5 text-paper/55 leading-relaxed">
+              <p>
+                Say you hold a tokenized treasury bond and some ETH. Pledging both lets you
+                borrow more than either would alone — that&apos;s the whole point of a margin
+                account, and it&apos;s genuinely useful.
+              </p>
+              <p>
+                But the fine print is that collateral is treated as interchangeable. When ETH
+                falls at 3am, the system sells whatever recovers the loan fastest. Often that&apos;s
+                the bond — the asset that didn&apos;t do anything wrong.
+              </p>
+              <p className="text-paper/70">
+                For a fund, that&apos;s a bad night. For an institution, it&apos;s a dealbreaker. Their
+                bond is a regulated security with an approved holder list and transfer rules —
+                and a smart contract just sold it to a stranger to cover an unrelated position.
+              </p>
+              <p className="text-paper/40 text-sm">
+                Today the only alternative is to keep the bond in a separate account, where it
+                earns you no borrowing power at all. Safe, and useless.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <section id="infrastructure" className="max-w-7xl mx-auto px-6 lg:px-10 pb-24"><div className="border border-line"><div className="p-6 md:p-8 border-b border-line/70 flex flex-col md:flex-row md:items-end justify-between gap-5"><div><span className="mono text-[10px] uppercase tracking-[0.18em] text-paper/35">Infrastructure</span><h2 className="text-2xl md:text-3xl font-semibold tracking-tight mt-3">One operating view. Separate custody domains.</h2></div><span className="mono text-[10px] text-paper/35">TESTNET ENVIRONMENT / LIVE EVIDENCE</span></div><div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-line/70"><div className="p-6 md:p-8"><span className="mono text-[10px] uppercase tracking-widest text-safe">Protected domain</span><h3 className="text-lg font-medium mt-3">Hedera ATS</h3><p className="text-sm text-paper/40 leading-relaxed mt-3">A real KYC-gated security token with compliant transfer lifecycle. {hedera ? <a href={hedera.bondHashscan} target="_blank" rel="noreferrer" className="text-safe underline underline-offset-4">View evidence</a> : "Evidence pending."}</p></div><div className="p-6 md:p-8"><span className="mono text-[10px] uppercase tracking-widest text-paper/50">Network intelligence</span><h3 className="text-lg font-medium mt-3">The Graph</h3><p className="text-sm text-paper/40 leading-relaxed mt-3">A standardized Lending schema reused across real protocol deployments, giving the account a common exposure language.</p></div><div className="p-6 md:p-8"><span className="mono text-[10px] uppercase tracking-widest text-signal">Private policy</span><h3 className="text-lg font-medium mt-3">Chainlink CRE</h3><p className="text-sm text-paper/40 leading-relaxed mt-3">A confidential workflow turns private thresholds and live inputs into one auditable, selective action.</p></div></div></div></section>
+      <section id="how" className="max-w-6xl mx-auto px-6 lg:px-10 py-20 md:py-24">
+        <div className="max-w-2xl mb-14">
+          <Eyebrow>How it works</Eyebrow>
+          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mt-4">
+            Keep the borrowing power. Drop the risk of losing the bond.
+          </h2>
+        </div>
 
-    <section className="border-t border-line/60"><div className="max-w-7xl mx-auto px-6 lg:px-10 py-24 flex flex-col md:flex-row md:items-end justify-between gap-8"><div><span className="mono text-[10px] uppercase tracking-[0.18em] text-paper/35">For risk operators</span><h2 className="text-3xl md:text-5xl font-semibold tracking-tight mt-4 max-w-2xl">Turn a dangerous event into a contained one.</h2></div><Link href="/dashboard" className="mono text-xs uppercase tracking-wide border border-signal bg-signal/10 text-signal rounded-sm px-5 py-3 shrink-0 hover:bg-signal/20">Open dashboard →</Link></div></section>
-    <footer className="max-w-7xl mx-auto px-6 lg:px-10 py-7 border-t border-line/60 flex justify-between gap-4 text-[10px] mono uppercase tracking-widest text-paper/25"><span>Galvanic / Isolated collateral. Confidential decisions.</span><span>Hedera · The Graph · Chainlink</span></footer>
-  </main>;
+        <div className="grid md:grid-cols-3 gap-10 md:gap-12">
+          <div className="flex flex-col gap-6 border-t border-line/70 pt-6">
+            <Eyebrow>01 · Your collateral</Eyebrow>
+            <Step
+              n=""
+              title="The bond counts, for real"
+              body="Your tokenized bond stays on Hedera, under its own compliance rules. Galvanic reads what you hold and lets it back your loan — with no bridge, no wrapper, and nothing locked up."
+            />
+            <p className="text-xs text-paper/30 leading-relaxed">
+              In the live demo the bond is doing most of the work: the ETH alone couldn&apos;t
+              support the loan.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-6 border-t border-line/70 pt-6">
+            <Eyebrow>02 · The decision</Eyebrow>
+            <Step
+              n=""
+              title="Your risk rules stay yours"
+              body="Where you get liquidated, and how much gets sold, are your numbers — and publishing them tells everyone exactly how to push you. So the decision runs inside a sealed environment that nobody, including us, can read into."
+            />
+            <p className="text-xs text-paper/30 leading-relaxed">
+              It also watches how hard the wider lending market is liquidating right now, and
+              moves your safety margin with it.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-6 border-t border-line/70 pt-6">
+            <Eyebrow>03 · The firewall</Eyebrow>
+            <Step
+              n=""
+              title="The sale can only touch crypto"
+              body="If you get liquidated, the engine is allowed to sell your crypto and nothing else. If that isn't enough, your borrowing power shrinks and new borrowing stops — but the bond stays where it is."
+            />
+            <p className="text-xs text-paper/30 leading-relaxed">
+              The part that decides how much to sell has no way to name the bond. It isn&apos;t
+              trusted not to — it structurally cannot.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-line/60 bg-white/[0.015]">
+        <div className="max-w-6xl mx-auto px-6 lg:px-10 py-16 grid md:grid-cols-[0.8fr_1.2fr] gap-10">
+          <div>
+            <Eyebrow>Who this is for</Eyebrow>
+            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight mt-4">
+              Anyone whose collateral isn&apos;t all the same kind of risky.
+            </h2>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-8 text-sm">
+            <div>
+              <p className="text-paper/75 font-medium">Funds holding tokenized treasuries</p>
+              <p className="text-paper/40 leading-relaxed mt-2">
+                Borrow against the bond without accepting that a crypto drawdown can liquidate it.
+              </p>
+            </div>
+            <div>
+              <p className="text-paper/75 font-medium">Issuers and their holders</p>
+              <p className="text-paper/40 leading-relaxed mt-2">
+                Your security keeps its holder register intact. It cannot be transferred to
+                someone outside it by a liquidation.
+              </p>
+            </div>
+            <div>
+              <p className="text-paper/75 font-medium">Lending venues</p>
+              <p className="text-paper/40 leading-relaxed mt-2">
+                Accept real-world assets as collateral without redesigning your liquidation
+                engine around every asset class.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="proof" className="max-w-6xl mx-auto px-6 lg:px-10 py-20 md:py-24">
+        <div className="max-w-2xl mb-12">
+          <Eyebrow>Proof, not promises</Eyebrow>
+          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mt-4">
+            We ran the crash both ways and kept the receipts.
+          </h2>
+          <p className="text-paper/45 leading-relaxed mt-5">
+            Same account. Same 92% crash. Same decision. The only difference is whether the
+            firewall was on. Both settled on a public testnet — you can open them.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-px bg-line border border-line">
+          <div className="bg-ink p-6 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <span className="mono text-[11px] uppercase tracking-widest text-paper/45">Firewall off</span>
+              <span className="mono text-[10px] uppercase text-signal border border-signal/30 bg-signal/10 px-2 py-1">Bond sold</span>
+            </div>
+            <p className="mono text-3xl text-signal">$16,201</p>
+            <p className="text-sm text-paper/45 leading-relaxed">
+              taken from the bond after the crypto ran out. The holder register changed hands.
+            </p>
+            <a
+              href="https://sepolia.etherscan.io/tx/0x66729f8b32676843f2432796edf0c030bbc23b727ce52051dcfd2c26418dee77"
+              target="_blank"
+              rel="noreferrer"
+              className="mono text-[11px] uppercase tracking-wide text-paper/40 hover:text-paper"
+            >
+              View transaction ↗
+            </a>
+          </div>
+          <div className="bg-ink p-6 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <span className="mono text-[11px] uppercase tracking-widest text-paper/45">Firewall on</span>
+              <span className="mono text-[10px] uppercase text-safe border border-safe/30 bg-safe/10 px-2 py-1">Bond intact</span>
+            </div>
+            <p className="mono text-3xl text-safe">$0</p>
+            <p className="text-sm text-paper/45 leading-relaxed">
+              taken from the bond. The crypto was sold, borrowing was frozen, and the bond
+              stayed exactly where it was.
+            </p>
+            <a
+              href="https://sepolia.etherscan.io/tx/0x4c09580ec7b7d7987660400c031f18897fee564e976aef91c75dc087516c667b"
+              target="_blank"
+              rel="noreferrer"
+              className="mono text-[11px] uppercase tracking-wide text-paper/40 hover:text-paper"
+            >
+              View transaction ↗
+            </a>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-px bg-line border border-line border-t-0">
+          <div className="bg-ink p-6">
+            <Eyebrow>The bond is real</Eyebrow>
+            <p className="text-sm text-paper/50 leading-relaxed mt-3">
+              A live security token on Hedera with an approved-holder list and a{" "}
+              {hedera?.corporateAction?.ratePct ?? 2.5}% coupon. We revoked a holder&apos;s approval
+              and watched the contract refuse the transfer.
+            </p>
+            {hedera && (
+              <a href={hedera.bondHashscan} target="_blank" rel="noreferrer" className="mono text-[11px] uppercase tracking-wide text-safe hover:underline mt-3 inline-block">
+                {hedera.asset.symbol} on HashScan ↗
+              </a>
+            )}
+          </div>
+          <div className="bg-ink p-6">
+            <Eyebrow>The market data is real</Eyebrow>
+            <p className="text-sm text-paper/50 leading-relaxed mt-3">
+              Prices and liquidation pressure come from Aave, Compound and Spark — live, right
+              now. There is no offline mode; without real data the app refuses to decide.
+            </p>
+          </div>
+          <div className="bg-ink p-6">
+            <Eyebrow>The decision is sealed</Eyebrow>
+            <p className="text-sm text-paper/50 leading-relaxed mt-3">
+              Your risk rules are loaded inside a hardware-isolated enclave and never come
+              back out. What comes out is one instruction, and it cannot name the bond.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-line/60">
+        <div className="max-w-6xl mx-auto px-6 lg:px-10 py-20 flex flex-col md:flex-row md:items-end justify-between gap-8">
+          <div className="max-w-xl">
+            <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">
+              Watch a liquidation stop at the border.
+            </h2>
+            <p className="text-paper/45 leading-relaxed mt-4">
+              Crash the market yourself, run the decision, and see which assets move.
+            </p>
+          </div>
+          <Link
+            href="/dashboard"
+            className="mono text-xs uppercase tracking-wide border border-signal bg-signal/10 text-signal rounded-sm px-5 py-3 shrink-0 hover:bg-signal/20"
+          >
+            Open the app →
+          </Link>
+        </div>
+      </section>
+
+      <footer className="max-w-6xl mx-auto px-6 lg:px-10 py-7 border-t border-line/60 flex flex-wrap justify-between gap-4 text-[10px] mono uppercase tracking-widest text-paper/25">
+        <span>Galvanic — cross-margin without cross-contamination</span>
+        <span>Hedera · The Graph · Chainlink · Testnet</span>
+      </footer>
+    </main>
+  );
 }

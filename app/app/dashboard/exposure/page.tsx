@@ -7,8 +7,6 @@ import { Card, StatTile, Badge, SectionHeading, PrimaryButton, SecondaryButton }
 const money = (n: number | null | undefined, d = 0) =>
   n === null || n === undefined ? "—" : `$${n.toLocaleString(undefined, { maximumFractionDigits: d })}`;
 
-/** Real Aave v3 borrowers, found by querying the standardized schema for the largest
- *  open BORROWER positions. Paste one and the policy reacts to live mainnet debt. */
 const SAMPLE_BORROWERS = [
   { label: "$52M USDe borrower", address: "0x6142eb927529974c5cded66dafc57cb5aaaf73ab" },
   { label: "$15M DAI borrower", address: "0xa32e350c5397b78fe31d8e65d6bfa3d2c58a2ebb" },
@@ -65,7 +63,6 @@ export default function NetworkData() {
         <div className="bg-ink p-4"><StatTile label="Liquidation intensity" value={ex ? `${ex.liquidation_intensity_bps.toFixed(2)} bps` : "—"} sub="7d liquidated / total borrows" /></div>
       </div>
 
-      {/* The proof that the account query is load-bearing, not decorative. */}
       <Card className="flex flex-col gap-4">
         <SectionHeading eyebrow="Try it against a real borrower" title="Whose exposure?" />
         <p className="text-sm text-paper/45 leading-relaxed max-w-3xl">

@@ -12,7 +12,6 @@ function Dot({ tone }: { tone: "safe" | "signal" | "warn" }) {
   return <span className={`inline-block h-1.5 w-1.5 rounded-full ${c}`} />;
 }
 
-/** The core of the product: what each margin mode would do to each collateral class. */
 function Counterfactual() {
   const { sepolia } = useDashboard();
   if (!sepolia?.configured) return null;
@@ -88,7 +87,6 @@ export default function Overview() {
         {s && <AddressChip address={s.account} href={`https://sepolia.etherscan.io/address/${s.account}`} />}
       </div>
 
-      {/* Headline: the note is carrying the position. */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px border border-line bg-line">
         <div className="bg-ink p-4">
           <StatTile label="Crypto collateral" value={money(s?.cryptoValueUsd)} sub={s ? `${s.collateralUnits} fmETH @ ${money(s.markPriceUsd)}` : "—"} />

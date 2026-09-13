@@ -15,14 +15,14 @@ typechain-types/
 *.log
 .DS_Store
 cre-workflow/**/secrets.json
-# upstream reference clone, not our submission code
+# upstream reference clone, not our code
 cre-workflow/cre-templates/
 cre-workflow/firewall-margin-workflow/firewall-margin/node_modules/
 # contracts-hedera/issued-asset.json IS committed on purpose: it is the Hedera
 # lifecycle evidence (bond address, HashScan links, every transaction hash). It
 # holds no key — the note holder is the Sepolia demo account, not a generated one.
 
-# internal/dev scratch notes stay out; the judge-facing docs are committed.
+# internal/dev scratch notes stay out; the public-facing docs are committed.
 *.md
 !/README.md
 !/docs/*.md

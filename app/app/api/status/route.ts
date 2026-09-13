@@ -128,9 +128,8 @@ async function readGraph(account?: string) {
 }
 
 export async function GET(req: Request) {
-  // `?exposureAccount=` lets a judge point the standardized Graph query at any
-  // address on Aave / Compound / Spark and watch the policy react to a real
-  // borrower's real exposure.
+  // `?exposureAccount=` points the standardized Graph query at any address on
+  // Aave / Compound / Spark, so the policy reacts to a real borrower's real exposure.
   const exposureAccount =
     new URL(req.url).searchParams.get("exposureAccount") ?? undefined;
 
