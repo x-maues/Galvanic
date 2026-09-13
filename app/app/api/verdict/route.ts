@@ -3,19 +3,25 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import os from "os";
 import path from "path";
+import fs from "fs";
 import { env } from "@/lib/env";
 
 const execFileAsync = promisify(execFile);
-
 export const dynamic = "force-dynamic";
 
+/**
+ * Runs the Chainlink CRE confidential workflow and returns the verdict it produced.
+ *
+ * The workflow executes under `cre.handlerInTee`: the private policy thresholds and
+ * the Graph credential are loaded as CRE secrets inside the enclave, the Hedera
+ * mirror node and the standardized Graph subgraphs are read from inside the
+ * enclave, and only the verdict plus the Hedera attestation cross back out. This
+ * route never sees a threshold — read the JSON it returns and check.
+ */
 function parseVerdict(stdout: string) {
   const lines = stdout.split("\n");
   const idx = lines.findIndex((l) => l.includes("Workflow Simulation Result"));
   if (idx === -1) return null;
-
-  // The result is printed as a JSON-encoded string on the following non-empty line,
-  // e.g.  "{\"liquidate\":true,\"account\":\"0x...\",...}"
   for (let i = idx + 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
@@ -34,24 +40,49 @@ export async function POST() {
   const home = os.homedir();
   const PATH = `${path.join(home, ".cre/bin")}:${path.join(home, ".bun/bin")}:${process.env.PATH}`;
 
-  // This Next.js process loads the repo-root .env (see lib/env.ts), which sets
-  // placeholder values like CRE_API_KEY=xxxx. The CRE CLI treats a *present*
-  // CRE_API_KEY as a real credential and tries to authenticate with it, breaking
-  // the unauthenticated local `simulate` path entirely (confirmed: the same
-  // command succeeds with the var unset, fails with the placeholder set). Strip
-  // just the offending placeholder credentials rather than forwarding them.
+  // This Next.js process loads the repo-root .env, which carries placeholder CRE
+  // credentials. The CRE CLI treats a *present* CRE_API_KEY as a real credential
+  // and tries to authenticate with it, which breaks the unauthenticated local
+  // `simulate` path. Strip just those rather than forwarding them.
   const { CRE_API_KEY, CRE_ETH_PRIVATE_KEY, ...restEnv } = process.env;
-  const childEnv = { ...restEnv, PATH };
 
   try {
+    const config = JSON.parse(
+      fs.readFileSync(path.join(cwd, "firewall-margin", "config.staging.json"), "utf8")
+    ) as { onchain?: { enabled?: boolean } };
+
     const { stdout, stderr } = await execFileAsync(
       "cre",
-      ["workflow", "simulate", "firewall-margin", "--target", "staging-settings", "--non-interactive", "--trigger-index", "0"],
-      { cwd, env: childEnv, timeout: 60_000 }
+      [
+        "workflow",
+        "simulate",
+        "firewall-margin",
+        "--target",
+        "staging-settings",
+        "--non-interactive",
+        "--trigger-index",
+        "0",
+      ],
+      { cwd, env: { ...restEnv, PATH }, timeout: 120_000 }
     );
 
     const verdict = parseVerdict(stdout);
-    return NextResponse.json({ ok: true, verdict, raw: stdout, stderr });
+    if (!verdict) {
+      return NextResponse.json(
+        { ok: false, error: "could not parse a verdict from the CRE run", raw: stdout },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      verdict,
+      // "enclave" — the decision was produced inside the TEE but not yet written
+      // anywhere. Settling it on Sepolia is a separate, explicit step.
+      execution: config.onchain?.enabled ? "don-delivered" : "enclave",
+      raw: stdout,
+      stderr,
+    });
   } catch (err: any) {
     return NextResponse.json(
       {
@@ -60,7 +91,8 @@ export async function POST() {
         raw: err?.stdout,
         stderr: err?.stderr,
         hint:
-          "Make sure the mock position/exposure server is running: `bun mock-server.js` inside cre-workflow/firewall-margin-workflow/firewall-margin/",
+          "The confidential workflow could not be evaluated. Check that the Graph service " +
+          "(subgraph/) and the position bridge (cre-workflow/.../position-bridge.js) are running.",
       },
       { status: 500 }
     );

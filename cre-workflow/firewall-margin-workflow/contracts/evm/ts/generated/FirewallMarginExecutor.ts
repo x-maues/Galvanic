@@ -44,9 +44,8 @@ export class FirewallMarginExecutor {
 	 * Delivers an already-generated DON-signed `Report` (from `donRuntime.report(...)`)
 	 * to this contract via the CRE Forwarder. The Forwarder calls `onReport`,
 	 * which (via `ReceiverTemplate`) decodes the report payload as
-	 * `(bool liquidate, address account, uint256 amountUsd)` and — when
-	 * `liquidate` is true — is expected to call the real vault's
-	 * `executeLiquidation(account, amountUsd)`.
+	 * `(uint8 action, address account, uint256 amountUsd)` and applies the
+	 * confidential policy state transition to the vault.
 	 */
 	deliver(runtime: Runtime<unknown>, report: Report, gasConfig?: { gasLimit?: string }) {
 		return this.client

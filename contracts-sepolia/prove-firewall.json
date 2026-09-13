@@ -1,0 +1,62 @@
+{
+  "claim": "The same account, the same crash, the same enclave verdict. Only the margin mode differs — and only one of them reaches the Hedera note.",
+  "network": "ethereum-sepolia",
+  "account": "0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602",
+  "contracts": {
+    "vault": "0x3b3aFFcA57b32109d1C772bbA24D1c5d6D80c711",
+    "registry": "0xEf29220ea72702aa4d02414F2C894dff0fD41728",
+    "executor": "0x1fd4DCAecEC3964C99836F5969F441f2c67e473b"
+  },
+  "hederaNote": {
+    "token": "0x0b85d6db3D300B695a40C463B8669C3e76Bd982b",
+    "units": "300000",
+    "markedValueUsd": 30000
+  },
+  "startingPosition": {
+    "cryptoValueUsd": 27176.75,
+    "protectedValueUsdAfterHaircut": 28500,
+    "debtUsd": 35000,
+    "portfolioHealthFactor": 1.2726,
+    "cryptoOnlyHealthFactor": 0.6212,
+    "note": "crypto-only health is below 1.0 — the Hedera note is carrying this position"
+  },
+  "marketEvent": {
+    "markBeforeUsd": 2718,
+    "markAfterUsd": 217,
+    "source": "mark restored from the live cross-protocol ETH price via The Graph; the crash is the one scripted input"
+  },
+  "preview": {
+    "source": "CryptoMarginVault.previewLiquidation — computed by the contract, identical in both runs",
+    "cryptoSeizedUsd": 2174,
+    "shortfallUsd": 16201,
+    "protectedSeizedUsdPooled": 16201,
+    "protectedSeizedUsdFirewall": 0
+  },
+  "enclaveVerdict": {
+    "action": "liquidate",
+    "reason": "health factor 0.70 is below the 1.15 the policy requires at current market stress",
+    "producedBy": "Chainlink CRE cre.handlerInTee (AWS Nitro), thresholds loaded as CRE secrets",
+    "note": "identical verdict in both runs — the policy never names which collateral pays"
+  },
+  "runs": [
+    {
+      "mode": "pooled",
+      "markTx": "0x164c82a40a28eb777101d39910b02315ccaf2dfb6ae953ef014d547f1034a380",
+      "settleTx": "0x66729f8b32676843f2432796edf0c030bbc23b727ce52051dcfd2c26418dee77",
+      "settleExplorer": "https://sepolia.etherscan.io/tx/0x66729f8b32676843f2432796edf0c030bbc23b727ce52051dcfd2c26418dee77",
+      "noteBefore": { "units": "300000", "claimSeized": false, "claimHolder": "0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602" },
+      "noteAfter": { "units": "300000", "claimSeized": true, "claimHolder": "0x1fd4DCAecEC3964C99836F5969F441f2c67e473b" },
+      "outcome": "PROTECTED COLLATERAL SEIZED — the crypto default reached the Hedera note"
+    },
+    {
+      "mode": "firewall",
+      "markTx": "0xf56de253a8e81070eec79bbf0e913331123a21c36a058e12572bd2d01fe984f2",
+      "settleTx": "0x4c09580ec7b7d7987660400c031f18897fee564e976aef91c75dc087516c667b",
+      "settleExplorer": "https://sepolia.etherscan.io/tx/0x4c09580ec7b7d7987660400c031f18897fee564e976aef91c75dc087516c667b",
+      "noteBefore": { "units": "300000", "claimSeized": false, "claimHolder": "0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602" },
+      "noteAfter": { "units": "300000", "claimSeized": false, "claimHolder": "0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602" },
+      "outcome": "PROTECTED COLLATERAL PRESERVED — the default stopped at the crypto bucket"
+    }
+  ],
+  "recordedAt": "2026-09-13T20:05:00Z"
+}

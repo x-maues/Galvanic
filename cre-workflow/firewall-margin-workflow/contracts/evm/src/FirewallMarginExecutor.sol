@@ -9,7 +9,7 @@ import {ReceiverTemplate} from "./ReceiverTemplate.sol";
  *         liquidation verdict.
  *
  *         The CRE Confidential Workflow (firewall-margin-workflow/firewall-margin)
- *         computes `{liquidate, account, amountUsd}` inside a TEE from private
+ *         computes `{action, account, amountUsd}` inside a TEE from private
  *         policy thresholds + live crypto collateral health/LTV + cross-protocol
  *         exposure, then delivers it here as a DON-signed report via the CRE
  *         Forwarder.
@@ -26,20 +26,21 @@ import {ReceiverTemplate} from "./ReceiverTemplate.sol";
  *         observe on Sepolia to prove the state transition happened.
  */
 contract FirewallMarginExecutor is ReceiverTemplate {
-    event LiquidationVerdictReceived(address indexed account, uint256 amountUsd, bool liquidate);
-    event LiquidationExecuted(address indexed account, uint256 amountUsd);
+	event PolicyActionReceived(address indexed account, uint8 action, uint256 amountUsd);
+	event LiquidationExecuted(address indexed account, uint256 amountUsd);
+	event BorrowingRestrictionUpdated(address indexed account, bool restricted);
 
     constructor(address forwarder) ReceiverTemplate(forwarder) {}
 
     /// @notice Called by the CRE Forwarder via ReceiverTemplate.onReport
-    /// @param report ABI-encoded (bool liquidate, address account, uint256 amountUsd)
-    ///        — the exact shape `workflow.ts` encodes with
-    ///        `encodeAbiParameters(parseAbiParameters('bool liquidate, address account, uint256 amountUsd'), ...)`.
+    /// @param report ABI-encoded (uint8 action, address account, uint256 amountUsd).
     function _processReport(bytes calldata report) internal override {
-        (bool liquidate, address account, uint256 amountUsd) = abi.decode(report, (bool, address, uint256));
-        emit LiquidationVerdictReceived(account, amountUsd, liquidate);
+        (uint8 action, address account, uint256 amountUsd) = abi.decode(report, (uint8, address, uint256));
+        emit PolicyActionReceived(account, action, amountUsd);
 
-        if (liquidate) {
+        if (action == 1) {
+            emit BorrowingRestrictionUpdated(account, true);
+        } else if (action == 2) {
             executeLiquidation(account, amountUsd);
         }
     }

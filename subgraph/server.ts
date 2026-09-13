@@ -1,101 +1,107 @@
-// Firewall Margin — exposure HTTP server
-// ────────────────────────────────────────
+// Galvanic — Graph risk-signal service
+// ────────────────────────────────────
 //
-// Serves `GET /firewall-margin/exposure?account=0x...` with the exact shape
-// the CRE workflow already expects: `{ cross_protocol_borrow_exposure_usd }`
-// (see cre-workflow/firewall-margin-workflow/firewall-margin/workflow.ts,
-// `parseExposure`). Behind that one field:
+// Serves the live, standardized-schema risk signals that the Chainlink CRE
+// confidential policy consumes. There is no mock mode: if no Subgraph Studio API
+// key is configured the service fails loudly, because a policy decision made on
+// invented market data would be worthless.
 //
-//   - If GRAPH_API_KEY is set (a real Subgraph Studio key): runs the real,
-//     composed multi-protocol Messari Lending query from exposure.ts against
-//     The Graph's decentralized network gateway and returns the live sum.
-//   - If GRAPH_API_KEY is missing/placeholder: returns a clearly-labeled mock
-//     value (same number the existing mock-server.js already used) so the
-//     CRE workflow's local `cre workflow simulate` keeps working unchanged.
-//
-// This intentionally runs as its own small service rather than editing
-// mock-server.js in place, so the already-tested workflow simulation path is
-// never put at risk by this addition.
+//   GET /firewall-margin/exposure?account=0x...   the signals the enclave reads
+//   GET /firewall-margin/exposure/status          which deployments are registered
 
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as dotenv from 'dotenv'
 import express from 'express'
-import { LENDING_SUBGRAPHS, getCrossProtocolBorrowExposure } from './exposure'
+import { LENDING_SUBGRAPHS, getGraphRiskSignals } from './exposure'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-// Root .env first (repo convention — see contracts-hedera/issue-asset.ts),
-// then an optional local override.
 dotenv.config({ path: path.resolve(__dirname, '../.env') })
 dotenv.config({ path: path.resolve(__dirname, '.env') })
 
 const app = express()
 const PORT = Number(process.env.SUBGRAPH_EXPOSURE_PORT ?? 8790)
 
-// Same placeholder unlocked-mock value cre-workflow's mock-server.js already
-// serves for /firewall-margin/exposure — kept identical so switching the
-// workflow's `exposureApiUrl` to this server is a no-op for the local
-// simulation demo until a real GRAPH_API_KEY is added.
-const MOCK_EXPOSURE_USD = 15000
-
 const rawKey = process.env.GRAPH_API_KEY?.trim()
 const HAS_REAL_KEY = Boolean(rawKey && rawKey !== 'xxxx')
 
-app.get('/firewall-margin/exposure', async (req, res) => {
-	const account = typeof req.query.account === 'string' ? req.query.account : undefined
+// Short cache: the enclave, the dashboard and the status route all ask for the
+// same account within a second of each other during a demo, and the underlying
+// data moves on a daily-snapshot cadence.
+const CACHE_TTL_MS = 15_000
+let cache: { key: string; at: number; value: unknown } | null = null
 
+app.get('/firewall-margin/exposure', async (req, res) => {
 	if (!HAS_REAL_KEY) {
-		res.json({
-			cross_protocol_borrow_exposure_usd: MOCK_EXPOSURE_USD,
-			source: 'mock',
-			note:
-				'GRAPH_API_KEY not set (or still the .env.example placeholder "xxxx") -- returning a ' +
-				'labeled mock value so the CRE workflow simulation keeps working. Set a real Subgraph ' +
-				'Studio API key to query live Messari Lending subgraphs (see subgraph/README.md).',
+		res.status(503).json({
+			error:
+				'GRAPH_API_KEY is not set. Galvanic queries live Messari Standardized Lending ' +
+				'subgraphs through the Graph gateway and has no mock mode — get a free key at ' +
+				'https://thegraph.com/studio/apikeys/ and put it in the repo-root .env.',
 		})
 		return
 	}
 
+	const account = typeof req.query.account === 'string' ? req.query.account : undefined
 	if (!account) {
-		res.status(400).json({
-			error: 'missing required ?account=0x... query param',
-		})
+		res.status(400).json({ error: 'missing required ?account=0x... query param' })
+		return
+	}
+
+	if (cache && cache.key === account.toLowerCase() && Date.now() - cache.at < CACHE_TTL_MS) {
+		res.json(cache.value)
 		return
 	}
 
 	try {
-		const result = await getCrossProtocolBorrowExposure(account, rawKey!, LENDING_SUBGRAPHS)
+		const signals = await getGraphRiskSignals(account, rawKey!, LENDING_SUBGRAPHS)
 
-		res.json({
-			cross_protocol_borrow_exposure_usd: Math.round(result.totalBorrowExposureUsd),
-			source: 'live',
-			account: result.account,
-			queried_at: result.queriedAt,
-			// The composition evidence: same query, N protocols, per-protocol
-			// breakdown so the "one query, many protocols" leverage is visible in
-			// the response itself, not just in the code.
-			per_protocol: result.perProtocol.map((r) => ({
+		const body = {
+			source: 'live' as const,
+			degraded: signals.degraded,
+			account: signals.account,
+			queried_at: signals.queriedAt,
+			protocols_answered: signals.protocolsAnswered,
+
+			// Signals the confidential policy reads. snake_case because the CRE
+			// workflow parses this payload directly inside the enclave.
+			cross_protocol_borrow_exposure_usd: Math.round(signals.crossProtocolBorrowExposureUsd),
+			market_stress_bps: signals.marketStressBps,
+			collateral_asset_symbol: signals.collateralAssetSymbol,
+			collateral_price_usd: signals.collateralPriceUsd,
+			collateral_utilization_pct: Number(signals.collateralUtilizationPct.toFixed(2)),
+			liquidation_intensity_bps: Number(signals.liquidationIntensityBps.toFixed(2)),
+
+			// The composition evidence: the same query, every protocol, visible in the
+			// response itself rather than only in the code.
+			per_protocol: signals.perProtocol.map((r) => ({
 				name: r.target.name,
 				network: r.target.network,
 				schema_version: r.target.schemaVersion,
 				subgraph_id: r.target.subgraphId,
 				ok: r.ok,
-				borrow_exposure_usd: Math.round(r.borrowExposureUsd),
-				position_count: r.positionCount,
 				error: r.error,
+				account_borrow_exposure_usd: Math.round(r.borrowExposureUsd),
+				position_count: r.positionCount,
+				protocol_total_borrow_usd: Math.round(r.totalBorrowUsd),
+				liquidated_7d_usd: Math.round(r.liquidated7dUsd),
+				eth_market_count: r.ethMarketCount,
+				eth_borrow_usd: Math.round(r.ethBorrowUsd),
+				eth_deposit_usd: Math.round(r.ethDepositUsd),
+				eth_price_usd: r.ethPriceUsd,
 			})),
-		})
+		}
+
+		cache = { key: account.toLowerCase(), at: Date.now(), value: body }
+		res.json(body)
 	} catch (err) {
 		res.status(502).json({ error: err instanceof Error ? err.message : String(err) })
 	}
 })
 
-// Convenience: report which mode is active without needing to trigger a
-// query (useful for the demo script / judges' quick sanity check).
 app.get('/firewall-margin/exposure/status', (_req, res) => {
 	res.json({
-		mode: HAS_REAL_KEY ? 'live' : 'mock',
+		mode: HAS_REAL_KEY ? 'live' : 'unconfigured',
 		registeredProtocols: LENDING_SUBGRAPHS.map((t) => ({
 			name: t.name,
 			network: t.network,
@@ -106,10 +112,10 @@ app.get('/firewall-margin/exposure/status', (_req, res) => {
 })
 
 app.listen(PORT, () => {
-	console.log(`Firewall Margin exposure server running at http://127.0.0.1:${PORT}`)
+	console.log(`Galvanic Graph risk service on http://127.0.0.1:${PORT}`)
 	console.log(
 		HAS_REAL_KEY
-			? `Mode: LIVE — querying ${LENDING_SUBGRAPHS.length} real Messari Lending subgraphs via The Graph gateway`
-			: 'Mode: MOCK — GRAPH_API_KEY not set; returning a labeled placeholder value',
+			? `Mode: LIVE — one standardized query across ${LENDING_SUBGRAPHS.length} Messari Lending deployments`
+			: 'Mode: UNCONFIGURED — set GRAPH_API_KEY; there is no mock fallback',
 	)
 })

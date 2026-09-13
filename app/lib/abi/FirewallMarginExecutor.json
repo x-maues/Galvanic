@@ -10,6 +10,11 @@
         "internalType": "contract CryptoMarginVault",
         "name": "_vault",
         "type": "address"
+      },
+      {
+        "internalType": "contract ProtectedCollateralRegistry",
+        "name": "_registry",
+        "type": "address"
       }
     ],
     "stateMutability": "nonpayable",
@@ -110,6 +115,37 @@
     "inputs": [],
     "name": "WorkflowNameRequiresAuthorValidation",
     "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "hederaToken",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "units",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "valueUsd",
+        "type": "uint256"
+      }
+    ],
+    "name": "AttestationApplied",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -230,15 +266,15 @@
       },
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "amountUsd",
-        "type": "uint256"
+        "internalType": "uint8",
+        "name": "action",
+        "type": "uint8"
       },
       {
         "indexed": false,
-        "internalType": "bool",
-        "name": "liquidate",
-        "type": "bool"
+        "internalType": "uint256",
+        "name": "amountUsd",
+        "type": "uint256"
       }
     ],
     "name": "VerdictReceived",
@@ -320,6 +356,19 @@
     "outputs": [
       {
         "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "registry",
+    "outputs": [
+      {
+        "internalType": "contract ProtectedCollateralRegistry",
         "name": "",
         "type": "address"
       }

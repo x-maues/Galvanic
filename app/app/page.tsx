@@ -1,290 +1,32 @@
-"use client";
+import fs from "fs";
+import Link from "next/link";
+import { env } from "@/lib/env";
 
-import { useCallback, useEffect, useState } from "react";
-
-type SepoliaStatus =
-  | { configured: false; error?: string }
-  | {
-      configured: true;
-      vaultAddress: string;
-      executorAddress: string;
-      demoAccount: string;
-      price: string;
-      collateral: string;
-      debt: string;
-      healthFactor: string;
-      healthy: boolean;
-    };
-
-type HederaStatus =
-  | { configured: false }
-  | {
-      configured: true;
-      bondAddress: string;
-      bondHashscan: string;
-      asset: { name: string; symbol: string; totalSupply: string; isin: string };
-      operator: { evmAddress: string; balanceOfDefaultPartition: string };
-      investor: { evmAddress: string; balanceOfDefaultPartition: string };
-      transactions: Record<string, { hash: string; url: string }>;
-    };
-
-type Verdict = {
-  liquidate: boolean;
-  account: string;
-  amountUsd: number;
-  riskScore: number;
-  reason: string;
-};
-
-function Chip({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="mono text-[11px] uppercase tracking-wider border border-line px-2 py-1 text-paper/60">
-      {children}
-    </span>
-  );
+function readHederaEvidence() {
+  try { return JSON.parse(fs.readFileSync(env.hederaEvidencePath, "utf8")) as { bondAddress: string; bondHashscan: string; asset: { name: string; symbol: string } }; } catch { return null; }
 }
 
-function Badge({ tone, children }: { tone: "safe" | "signal" | "neutral"; children: React.ReactNode }) {
-  const color =
-    tone === "safe" ? "text-safe border-safe/40 bg-safe/10" : tone === "signal" ? "text-signal border-signal/40 bg-signal/10" : "text-paper/70 border-line";
-  return <span className={`mono text-xs uppercase tracking-wide border px-2 py-1 rounded-sm ${color}`}>{children}</span>;
+function Chip({ children }: { children: React.ReactNode }) { return <span className="mono text-[10px] uppercase tracking-[0.14em] border border-line px-2.5 py-1.5 text-paper/55 rounded-sm">{children}</span>; }
+
+function ProductPanel() {
+  return <div className="border border-line bg-[#0d0d0d] shadow-2xl shadow-black/30"><div className="flex items-center justify-between border-b border-line/70 px-4 py-3"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-safe" /><span className="mono text-[10px] uppercase tracking-[0.16em] text-paper/45">Live account view</span></div><span className="mono text-[10px] text-paper/25">ACCOUNT / 0x4A30…0602</span></div><div className="grid md:grid-cols-[1.05fr_0.95fr] divide-y md:divide-y-0 md:divide-x divide-line/70"><div className="p-5 md:p-7"><div className="flex items-center justify-between mb-7"><div><p className="mono text-[10px] uppercase tracking-[0.14em] text-paper/35">Account posture</p><p className="text-lg font-medium mt-1">Stable across domains</p></div><span className="mono text-xs text-safe border border-safe/30 bg-safe/10 px-2 py-1">HEALTHY</span></div><div className="grid grid-cols-2 gap-5"><div><p className="text-xs text-paper/35">Health factor</p><p className="mono text-3xl mt-1">1.62</p><p className="text-xs text-safe mt-1">Within policy</p></div><div><p className="text-xs text-paper/35">Protected balance</p><p className="mono text-3xl mt-1">1,000</p><p className="text-xs text-paper/35 mt-1">FWM-NOTE · Hedera</p></div></div><div className="mt-8 border-t border-line/70 pt-4 flex items-center justify-between"><span className="text-xs text-paper/35">Next policy evaluation</span><span className="mono text-xs text-paper/60">in 00:58</span></div></div><div className="p-5 md:p-7"><div className="flex items-center gap-2 mb-5"><span className="h-1.5 w-1.5 rounded-full bg-signal" /><p className="mono text-[10px] uppercase tracking-[0.14em] text-paper/40">Confidential decision path</p></div><div className="space-y-4"><div className="flex gap-3"><span className="mono text-[10px] text-paper/30 pt-0.5">01</span><div><p className="text-sm">Live market exposure</p><p className="text-xs text-paper/35 mt-1">The Graph · 4 standardized markets</p></div></div><div className="h-px bg-line/70 ml-6" /><div className="flex gap-3"><span className="mono text-[10px] text-paper/30 pt-0.5">02</span><div><p className="text-sm">Private policy evaluation</p><p className="text-xs text-paper/35 mt-1">Chainlink CRE · Nitro TEE</p></div></div><div className="h-px bg-line/70 ml-6" /><div className="flex gap-3"><span className="mono text-[10px] text-paper/30 pt-0.5">03</span><div><p className="text-sm">Selective action</p><p className="text-xs text-paper/35 mt-1">Sepolia only · Hedera unreachable</p></div></div></div><div className="mt-7 border border-safe/20 bg-safe/[0.04] p-3 flex items-center gap-3"><span className="h-2 w-2 rounded-full bg-safe" /><span className="text-xs text-paper/60">No active protection events</span></div></div></div></div>;
 }
 
-function Panel({
-  title,
-  eyebrow,
-  tone,
-  children,
-}: {
-  title: string;
-  eyebrow: string;
-  tone: "safe" | "signal";
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex-1 border border-line p-6 md:p-8 flex flex-col gap-5">
-      <div className="flex items-center justify-between">
-        <span className="mono text-xs uppercase tracking-widest text-paper/50">{eyebrow}</span>
-        <Badge tone={tone}>{tone === "safe" ? "Protected" : "Liquid"}</Badge>
-      </div>
-      <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">{title}</h2>
-      {children}
-    </div>
-  );
-}
+function Capability({ number, title, body, label }: { number: string; title: string; body: string; label: string }) { return <div className="border-t border-line/70 pt-5 flex flex-col gap-3"><div className="flex justify-between"><span className="mono text-[10px] text-paper/25">{number}</span><span className="mono text-[10px] uppercase tracking-widest text-paper/35">{label}</span></div><h3 className="text-lg font-medium tracking-tight">{title}</h3><p className="text-sm text-paper/45 leading-relaxed">{body}</p></div>; }
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5 py-2 border-t border-line/60">
-      <span className="text-xs text-paper/50">{label}</span>
-      <span className="mono tnum text-sm break-all">{value}</span>
-    </div>
-  );
-}
+export default function Landing() {
+  const hedera = readHederaEvidence();
+  return <main className="min-h-screen overflow-hidden"><nav className="max-w-7xl mx-auto px-6 lg:px-10 py-6 flex items-center justify-between"><Link href="/" className="flex items-center gap-3"><span className="h-3 w-3 bg-signal rounded-sm" /><span className="mono text-xs uppercase tracking-[0.22em] text-paper/75">Galvanic</span></Link><div className="hidden md:flex items-center gap-7 text-sm text-paper/45"><a href="#product" className="hover:text-paper">Product</a><a href="#how-it-works" className="hover:text-paper">How it works</a><a href="#infrastructure" className="hover:text-paper">Infrastructure</a></div><Link href="/dashboard" className="mono text-[11px] uppercase tracking-wide border border-signal text-signal rounded-sm px-4 py-2.5 hover:bg-signal/10">Open dashboard →</Link></nav>
 
-function Empty({ hint }: { hint: string }) {
-  return (
-    <div className="border border-dashed border-line/70 p-4 text-sm text-paper/40">
-      Not deployed yet. {hint}
-    </div>
-  );
-}
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 pt-20 md:pt-28 pb-20"><div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-14 xl:gap-24 items-center"><div className="flex flex-col items-start gap-7"><div className="flex items-center gap-3"><span className="h-1.5 w-1.5 bg-signal rounded-full pulse" /><span className="mono text-[10px] uppercase tracking-[0.18em] text-paper/40">Isolated collateral. Confidential decisions.</span></div><h1 className="text-5xl md:text-7xl font-semibold tracking-[-0.05em] leading-[0.94] max-w-2xl">Know what can move before anything moves.</h1><p className="text-base md:text-lg text-paper/50 leading-relaxed max-w-xl">Galvanic gives risk teams a live operating view of volatile and protected collateral—then evaluates liquidation policy privately, before a single action crosses a custody boundary.</p><div className="flex flex-wrap gap-3"><Link href="/dashboard" className="mono text-xs uppercase tracking-wide border border-signal bg-signal/10 text-signal rounded-sm px-5 py-3 hover:bg-signal/20">Open dashboard →</Link><a href="#how-it-works" className="mono text-xs uppercase tracking-wide border border-line text-paper/60 rounded-sm px-5 py-3 hover:bg-white/5">See the operating model</a></div><div className="flex flex-wrap gap-2 pt-1"><Chip>Hedera ATS</Chip><Chip>The Graph</Chip><Chip>Chainlink CRE</Chip></div></div><div id="product"><ProductPanel /></div></div></section>
 
-export default function Page() {
-  const [sepolia, setSepolia] = useState<SepoliaStatus | null>(null);
-  const [hedera, setHedera] = useState<HederaStatus | null>(null);
-  const [verdict, setVerdict] = useState<Verdict | null>(null);
-  const [verdictRaw, setVerdictRaw] = useState<string | null>(null);
-  const [loadingAction, setLoadingAction] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+    <section className="border-y border-line/60 bg-white/[0.02]"><div className="max-w-7xl mx-auto px-6 lg:px-10 py-5 flex flex-col md:flex-row md:items-center gap-4 md:gap-12"><span className="mono text-[10px] uppercase tracking-[0.16em] text-paper/30">Built for real operations</span><div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-paper/50"><span><i className="inline-block h-1.5 w-1.5 rounded-full bg-safe mr-2" />Protected assets stay protected</span><span><i className="inline-block h-1.5 w-1.5 rounded-full bg-signal mr-2" />Liquid risk stays actionable</span><span><i className="inline-block h-1.5 w-1.5 rounded-full bg-paper/30 mr-2" />Policy stays private</span></div></div></section>
 
-  const refresh = useCallback(async () => {
-    try {
-      const res = await fetch("/api/status", { cache: "no-store" });
-      const data = await res.json();
-      setSepolia(data.sepolia);
-      setHedera(data.hedera);
-    } catch (err) {
-      setError(String(err));
-    }
-  }, []);
+    <section id="how-it-works" className="max-w-7xl mx-auto px-6 lg:px-10 py-24"><div className="max-w-2xl mb-14"><span className="mono text-[10px] uppercase tracking-[0.18em] text-signal/80">The operating model</span><h2 className="text-3xl md:text-5xl font-semibold tracking-tight mt-4">A risk workflow designed around boundaries.</h2><p className="text-paper/45 leading-relaxed mt-5">Most collateral systems make isolation a policy choice inside one pool. Galvanic makes the boundary visible, auditable, and structural.</p></div><div className="grid md:grid-cols-3 gap-10"><Capability number="01" label="Observe" title="See the whole exposure picture" body="A single account view joins the Sepolia liquid position with live, standardized lending data across external protocols." /><Capability number="02" label="Evaluate" title="Keep policy out of the public path" body="Private thresholds and raw risk inputs are evaluated inside a Chainlink CRE confidential workflow. The operating team sees the decision, not the secrets." /><Capability number="03" label="Act" title="Move only what is allowed to move" body="A signed decision can act on the liquid crypto leg. The Hedera asset has no bridge or contract path into the liquidation flow." /></div></section>
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+    <section id="infrastructure" className="max-w-7xl mx-auto px-6 lg:px-10 pb-24"><div className="border border-line"><div className="p-6 md:p-8 border-b border-line/70 flex flex-col md:flex-row md:items-end justify-between gap-5"><div><span className="mono text-[10px] uppercase tracking-[0.18em] text-paper/35">Infrastructure</span><h2 className="text-2xl md:text-3xl font-semibold tracking-tight mt-3">One operating view. Separate custody domains.</h2></div><span className="mono text-[10px] text-paper/35">TESTNET ENVIRONMENT / LIVE EVIDENCE</span></div><div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-line/70"><div className="p-6 md:p-8"><span className="mono text-[10px] uppercase tracking-widest text-safe">Protected domain</span><h3 className="text-lg font-medium mt-3">Hedera ATS</h3><p className="text-sm text-paper/40 leading-relaxed mt-3">A real KYC-gated security token with compliant transfer lifecycle. {hedera ? <a href={hedera.bondHashscan} target="_blank" rel="noreferrer" className="text-safe underline underline-offset-4">View evidence</a> : "Evidence pending."}</p></div><div className="p-6 md:p-8"><span className="mono text-[10px] uppercase tracking-widest text-paper/50">Network intelligence</span><h3 className="text-lg font-medium mt-3">The Graph</h3><p className="text-sm text-paper/40 leading-relaxed mt-3">A standardized Lending schema reused across real protocol deployments, giving the account a common exposure language.</p></div><div className="p-6 md:p-8"><span className="mono text-[10px] uppercase tracking-widest text-signal">Private policy</span><h3 className="text-lg font-medium mt-3">Chainlink CRE</h3><p className="text-sm text-paper/40 leading-relaxed mt-3">A confidential workflow turns private thresholds and live inputs into one auditable, selective action.</p></div></div></div></section>
 
-  async function runAction(action: "stress" | "heal") {
-    setLoadingAction(action);
-    setError(null);
-    try {
-      const res = await fetch("/api/trigger-stress", {
-        method: "POST",
-        body: JSON.stringify({ action }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "failed");
-      await refresh();
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setLoadingAction(null);
-    }
-  }
-
-  async function runVerdict() {
-    setLoadingAction("verdict");
-    setError(null);
-    setVerdict(null);
-    setVerdictRaw(null);
-    try {
-      const res = await fetch("/api/verdict", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? data.hint ?? "failed");
-      setVerdict(data.verdict);
-      setVerdictRaw(data.raw);
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setLoadingAction(null);
-    }
-  }
-
-  return (
-    <main className="min-h-screen max-w-6xl mx-auto px-6 py-10 md:py-16 flex flex-col gap-12">
-      <header className="flex flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-3 w-3 bg-signal" />
-          <span className="mono text-xs uppercase tracking-[0.2em] text-paper/50">Galvanic</span>
-        </div>
-        <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.05]">
-          Cross-margin,
-          <br />
-          without cross-contamination.
-        </h1>
-        <p className="text-paper/50 max-w-xl text-sm md:text-base">
-          A confidential risk decision can isolate and act on stressed crypto collateral — without
-          ever touching protected, compliance-gated RWA collateral. Different contract, different
-          chain, no shared custody.
-        </p>
-        <div className="flex flex-wrap gap-2 pt-2">
-          <Chip>Hedera · Asset Tokenization Studio</Chip>
-          <Chip>The Graph · Standardized Subgraph</Chip>
-          <Chip>Chainlink · CRE Confidential Workflow</Chip>
-        </div>
-      </header>
-
-      <section className="flex flex-col md:flex-row gap-0 relative">
-        <Panel title="Protected RWA Leg" eyebrow="Hedera Testnet · ATS" tone="safe">
-          {hedera?.configured ? (
-            <div>
-              <Row label="Asset" value={`${hedera.asset.name} (${hedera.asset.symbol})`} />
-              <Row label="Bond contract" value={hedera.bondAddress} />
-              <Row label="Total supply" value={hedera.asset.totalSupply} />
-              <Row label="Investor balance (KYC-gated)" value={hedera.investor.balanceOfDefaultPartition} />
-              <a
-                href={hedera.bondHashscan}
-                target="_blank"
-                rel="noreferrer"
-                className="text-safe text-sm underline underline-offset-4 mt-2 inline-block"
-              >
-                View on HashScan →
-              </a>
-            </div>
-          ) : (
-            <Empty hint="Run contracts-hedera/issue-asset.ts with a funded Hedera testnet account." />
-          )}
-        </Panel>
-
-        <div className="hidden md:block firewall-seam mx-2" />
-
-        <Panel title="Liquid Crypto Leg" eyebrow="Ethereum Sepolia · Vault" tone="signal">
-          {sepolia?.configured ? (
-            <div>
-              <div className="flex items-baseline gap-3 py-2">
-                <span className="text-sm text-paper/50">Health factor</span>
-                <span
-                  className={`mono tnum text-3xl font-semibold ${
-                    sepolia.healthy ? "text-safe" : "text-signal pulse"
-                  }`}
-                >
-                  {sepolia.healthFactor}
-                </span>
-              </div>
-              <Row label="Vault" value={sepolia.vaultAddress} />
-              <Row label="Executor (CRE-gated)" value={sepolia.executorAddress} />
-              <Row label="Status" value={sepolia.healthy ? "Healthy" : "Liquidatable"} />
-              <div className="flex gap-2 pt-4">
-                <button
-                  onClick={() => runAction("stress")}
-                  disabled={loadingAction !== null}
-                  className="mono text-xs uppercase tracking-wide border border-signal text-signal px-3 py-2 hover:bg-signal/10 disabled:opacity-40"
-                >
-                  {loadingAction === "stress" ? "Triggering…" : "Trigger stress"}
-                </button>
-                <button
-                  onClick={() => runAction("heal")}
-                  disabled={loadingAction !== null}
-                  className="mono text-xs uppercase tracking-wide border border-line text-paper/60 px-3 py-2 hover:bg-white/5 disabled:opacity-40"
-                >
-                  {loadingAction === "heal" ? "Healing…" : "Heal"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <Empty hint="Run npm run deploy:sepolia in contracts-sepolia/ with a funded Sepolia key." />
-          )}
-        </Panel>
-      </section>
-
-      <section className="border border-line p-6 md:p-8 flex flex-col gap-5">
-        <div className="flex items-center justify-between">
-          <span className="mono text-xs uppercase tracking-widest text-paper/50">
-            Chainlink CRE · Confidential Workflow
-          </span>
-          <button
-            onClick={runVerdict}
-            disabled={loadingAction !== null}
-            className="mono text-xs uppercase tracking-wide border border-paper/30 px-3 py-2 hover:bg-white/5 disabled:opacity-40"
-          >
-            {loadingAction === "verdict" ? "Running in TEE…" : "Run confidential decision"}
-          </button>
-        </div>
-        <p className="text-sm text-paper/40 max-w-2xl">
-          Runs the real CRE workflow (<code className="mono">cre workflow simulate</code>) — private
-          liquidation policy thresholds and cross-protocol exposure are combined inside a TEE.
-          Only this verdict crosses the boundary; the inputs never do.
-        </p>
-        {verdict && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-            <div className="border border-line p-4">
-              <div className="text-xs text-paper/40 mb-1">Verdict</div>
-              <Badge tone={verdict.liquidate ? "signal" : "safe"}>
-                {verdict.liquidate ? "Liquidate crypto leg" : "Hold"}
-              </Badge>
-            </div>
-            <div className="border border-line p-4">
-              <div className="text-xs text-paper/40 mb-1">Risk score</div>
-              <div className="mono tnum text-xl">{verdict.riskScore.toFixed(2)}</div>
-            </div>
-            <div className="border border-line p-4">
-              <div className="text-xs text-paper/40 mb-1">Amount (USD)</div>
-              <div className="mono tnum text-xl">{verdict.amountUsd}</div>
-            </div>
-            <div className="border border-line p-4 col-span-2 md:col-span-1">
-              <div className="text-xs text-paper/40 mb-1">Reason</div>
-              <div className="text-sm">{verdict.reason}</div>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {error && (
-        <div className="border border-signal/40 text-signal text-sm p-4 mono">{error}</div>
-      )}
-
-      <footer className="text-paper/30 text-xs mono pt-8 border-t border-line/60">
-        Firewall Margin — built for ETHGlobal. No AI in the critical risk path.
-      </footer>
-    </main>
-  );
+    <section className="border-t border-line/60"><div className="max-w-7xl mx-auto px-6 lg:px-10 py-24 flex flex-col md:flex-row md:items-end justify-between gap-8"><div><span className="mono text-[10px] uppercase tracking-[0.18em] text-paper/35">For risk operators</span><h2 className="text-3xl md:text-5xl font-semibold tracking-tight mt-4 max-w-2xl">Turn a dangerous event into a contained one.</h2></div><Link href="/dashboard" className="mono text-xs uppercase tracking-wide border border-signal bg-signal/10 text-signal rounded-sm px-5 py-3 shrink-0 hover:bg-signal/20">Open dashboard →</Link></div></section>
+    <footer className="max-w-7xl mx-auto px-6 lg:px-10 py-7 border-t border-line/60 flex justify-between gap-4 text-[10px] mono uppercase tracking-widest text-paper/25"><span>Galvanic / Isolated collateral. Confidential decisions.</span><span>Hedera · The Graph · Chainlink</span></footer>
+  </main>;
 }

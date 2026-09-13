@@ -1,42 +1,37 @@
-// Firewall Margin — cross-protocol borrow exposure via The Graph
-// ─────────────────────────────────────────────────────────────
+// Galvanic — risk inputs from The Graph, via Messari Standardized Subgraphs
+// ─────────────────────────────────────────────────────────────────────────
 //
-// This module is the concrete "one query, many protocols" leverage the
-// Graph track wants: the SAME standardized GraphQL query — using Messari's
-// common Lending/CDP entities (Account -> Position -> Market/Token, schema
-// v3.1.0) — is sent, unmodified, to N different lending-protocol subgraph
-// deployments on The Graph's decentralized network, queried via the
-// Subgraph Studio gateway. Results are summed into one cross-protocol
-// borrow-exposure figure.
+// The leverage this module is built on: Messari's common Lending schema (v3.1.0)
+// defines the SAME entities — Account, Position, Market, Token, FinancialsDaily-
+// Snapshot — for every lending protocol that implements it. So one query,
+// written once, answers three different risk questions across Aave v3,
+// Compound v3 and Spark Lend simultaneously:
 //
-// Every subgraph ID below is a real, currently-indexed Messari Standardized
-// Lending subgraph deployment. Sourced from
-// https://github.com/messari/subgraphs/blob/master/deployment/deployment.json
-// (the `services.decentralized-network.query-id` field for each protocol's
-// `deployments.*` entry) — see README.md for the exact lookup and how it was
-// cross-checked against https://github.com/PaulieB14/graph-lending-mcp's
-// SUBGRAPHS.md live-status registry. No subgraph ID here is invented.
+//   1. what does this account already owe elsewhere?      (Account -> Position)
+//   2. how hard is the lending market liquidating today?  (FinancialsDailySnapshot)
+//   3. what is the collateral asset actually worth, and
+//      how stretched are the markets that hold it?        (Market -> Token)
+//
+// Without a shared schema this would be three bespoke integrations per protocol —
+// nine in total, each with its own entity names, price derivation and pagination.
+// Here it is one GraphQL document and a `for` loop. Adding a fourth protocol is
+// one row in LENDING_SUBGRAPHS; nothing else in this file changes.
+//
+// Every subgraph ID below is a real, currently-indexed deployment on The Graph's
+// decentralized network, queried through the gateway with a Subgraph Studio API
+// key. Sourced from messari/subgraphs `deployment/deployment.json`
+// (services.decentralized-network.query-id). No ID here is invented, and each one
+// is health-checked by `bun run verify` (see README.md).
 
 export interface LendingSubgraphTarget {
-	/** Human-readable label, e.g. "Aave v3 (Ethereum)". */
 	name: string
-	/** Protocol+network slug as used in messari/subgraphs deployment.json. */
 	slug: string
-	/** Network the deployment indexes. */
 	network: string
 	/** Messari Lending/CDP schema version this deployment implements. */
 	schemaVersion: string
-	/**
-	 * The Graph subgraph ID. Queried via
-	 * `https://gateway.thegraph.com/api/<GRAPH_API_KEY>/subgraphs/id/<subgraphId>`.
-	 */
 	subgraphId: string
 }
 
-// Real, live (see README.md "Verification" section for status/source per
-// row) Messari Standardized Lending schema v3.1.0 deployments. Deliberately
-// spans 4 different protocols across 2 chains to make the standardization
-// story concrete rather than a single lucky query.
 export const LENDING_SUBGRAPHS: LendingSubgraphTarget[] = [
 	{
 		name: 'Aave v3 (Ethereum)',
@@ -44,13 +39,6 @@ export const LENDING_SUBGRAPHS: LendingSubgraphTarget[] = [
 		network: 'ethereum',
 		schemaVersion: '3.1.0',
 		subgraphId: 'JCNWRypm7FYwV8fx5HhzZPSFaMxgkPuw4TnR3Gpi81zk',
-	},
-	{
-		name: 'Aave v3 (Base)',
-		slug: 'aave-v3-base',
-		network: 'base',
-		schemaVersion: '3.1.0',
-		subgraphId: 'D7mapexM5ZsQckLJai2FawTKXJ7CqYGKM8PErnS3cJi9',
 	},
 	{
 		name: 'Compound v3 (Ethereum)',
@@ -70,17 +58,15 @@ export const LENDING_SUBGRAPHS: LendingSubgraphTarget[] = [
 
 // ─── The ONE standardized query, sent unmodified to every deployment above ───
 //
-// Uses only entities/fields defined by Messari's common `schema-lending.graphql`
-// (v3.1.0): Account -> Position -> Market/Token. No protocol-specific branches.
+// Uses only entities and fields defined by Messari's common `schema-lending.graphql`
+// (v3.1.0). No protocol-specific branch exists anywhere in this file.
 //
-// Messari's Position entity does not carry a USD amount directly (verified
-// against schema-lending.graphql — Position has `balance: BigInt!` and
-// `asset: Token!` only), so USD value is computed the standard Messari way:
-// `balance / 10^asset.decimals * asset.lastPriceUSD`. This derivation is the
-// same across every protocol because Token.lastPriceUSD is part of the
-// common schema, not a per-protocol extension.
-export const ACCOUNT_BORROW_POSITIONS_QUERY = `
-  query AccountBorrowExposure($account: ID!) {
+// Position carries `balance: BigInt!` and `asset: Token!` but no USD amount, so
+// value is derived the standard Messari way — balance / 10^decimals *
+// asset.lastPriceUSD — which works identically on every protocol precisely because
+// Token.lastPriceUSD is part of the shared schema.
+export const PROTOCOL_RISK_QUERY = `
+  query GalvanicProtocolRisk($account: ID!) {
     account(id: $account) {
       id
       positions(where: { side: BORROWER, hashClosed: null }, first: 1000) {
@@ -90,8 +76,25 @@ export const ACCOUNT_BORROW_POSITIONS_QUERY = `
         asset { symbol decimals lastPriceUSD }
       }
     }
+    financialsDailySnapshots(first: 7, orderBy: timestamp, orderDirection: desc) {
+      timestamp
+      dailyLiquidateUSD
+      totalBorrowBalanceUSD
+      totalDepositBalanceUSD
+    }
+    markets(first: 200, where: { isActive: true }) {
+      id
+      name
+      totalBorrowBalanceUSD
+      totalDepositBalanceUSD
+      liquidationThreshold
+      inputToken { symbol decimals lastPriceUSD }
+    }
   }
 `.trim()
+
+/** Symbols treated as the account's collateral asset class (ETH) across protocols. */
+const ETH_SYMBOLS = new Set(['WETH', 'ETH', 'wstETH', 'weETH', 'rETH', 'cbETH', 'ETHx', 'osETH'])
 
 interface GraphQLResponse<T> {
 	data?: T
@@ -105,110 +108,224 @@ interface RawPosition {
 	asset: { symbol: string; decimals: number; lastPriceUSD: string | null }
 }
 
-interface AccountBorrowPositionsResult {
-	account: {
-		id: string
-		positions: RawPosition[]
-	} | null
+interface RawSnapshot {
+	timestamp: string
+	dailyLiquidateUSD: string | null
+	totalBorrowBalanceUSD: string | null
+	totalDepositBalanceUSD: string | null
 }
 
-export interface ProtocolExposureResult {
+interface RawMarket {
+	id: string
+	name: string | null
+	totalBorrowBalanceUSD: string | null
+	totalDepositBalanceUSD: string | null
+	liquidationThreshold: string | null
+	inputToken: { symbol: string; decimals: number; lastPriceUSD: string | null }
+}
+
+interface ProtocolRiskResult {
+	account: { id: string; positions: RawPosition[] } | null
+	financialsDailySnapshots: RawSnapshot[]
+	markets: RawMarket[]
+}
+
+export interface ProtocolRisk {
 	target: LendingSubgraphTarget
 	ok: boolean
+	error?: string
+	/** This account's open borrow value on this protocol. */
 	borrowExposureUsd: number
 	positionCount: number
-	error?: string
+	/** Protocol-wide borrows, and value liquidated over the snapshot window. */
+	totalBorrowUsd: number
+	liquidated7dUsd: number
+	/** The account's collateral asset class, as seen by this protocol. */
+	ethBorrowUsd: number
+	ethDepositUsd: number
+	ethPriceUsd: number | null
+	ethMarketCount: number
 }
 
-export interface CrossProtocolExposureResult {
+export interface GraphRiskSignals {
 	account: string
-	totalBorrowExposureUsd: number
-	perProtocol: ProtocolExposureResult[]
 	queriedAt: string
+	/** True when every protocol failed — the caller must not treat the numbers as real. */
+	degraded: boolean
+	protocolsAnswered: number
+
+	/** (1) What the account already owes on other venues. */
+	crossProtocolBorrowExposureUsd: number
+
+	/** (2)+(3) Live market conditions for the collateral asset class. */
+	collateralAssetSymbol: string
+	collateralPriceUsd: number | null
+	collateralUtilizationPct: number
+	liquidationIntensityBps: number
+	/**
+	 * One number the confidential policy consumes: how much extra health-factor
+	 * buffer the market is demanding right now, in basis points. Derived only from
+	 * live standardized-schema fields, never from anything local.
+	 */
+	marketStressBps: number
+
+	perProtocol: ProtocolRisk[]
 }
 
 export const gatewayUrl = (subgraphId: string, apiKey: string): string =>
 	`https://gateway.thegraph.com/api/${apiKey}/subgraphs/id/${subgraphId}`
 
+const num = (value: string | null | undefined): number => {
+	const parsed = Number(value ?? 0)
+	return Number.isFinite(parsed) ? parsed : 0
+}
+
 const positionUsd = (position: RawPosition): number => {
 	const balance = Number(position.balance)
-	const price = Number(position.asset.lastPriceUSD ?? 0)
+	const price = num(position.asset.lastPriceUSD)
 	const decimals = Number.isFinite(position.asset.decimals) ? position.asset.decimals : 18
-	if (!Number.isFinite(balance) || !Number.isFinite(price)) return 0
+	if (!Number.isFinite(balance)) return 0
 	return (balance / 10 ** decimals) * price
 }
 
+const median = (values: number[]): number | null => {
+	const sorted = values.filter((v) => v > 0).sort((a, b) => a - b)
+	if (sorted.length === 0) return null
+	const mid = Math.floor(sorted.length / 2)
+	return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
+}
+
 /**
- * Runs `ACCOUNT_BORROW_POSITIONS_QUERY` against a single Messari Lending
- * subgraph deployment via the Subgraph Studio gateway. Never throws — network
- * errors, GraphQL errors, and missing-account responses are all normalized
- * into `{ ok: false, error }` so one flaky/deprecated protocol can never take
- * down the whole cross-protocol aggregate.
+ * Runs `PROTOCOL_RISK_QUERY` against a single Messari Lending deployment. Never
+ * throws: network errors, GraphQL errors and missing accounts all normalize into
+ * `{ ok: false, error }`, so one deprecated or unallocated protocol can never take
+ * down the aggregate.
  */
-export async function queryProtocolBorrowExposure(
+export async function queryProtocolRisk(
 	target: LendingSubgraphTarget,
 	account: string,
 	apiKey: string,
 	fetchImpl: typeof fetch = fetch,
-): Promise<ProtocolExposureResult> {
+): Promise<ProtocolRisk> {
+	const empty: ProtocolRisk = {
+		target,
+		ok: false,
+		borrowExposureUsd: 0,
+		positionCount: 0,
+		totalBorrowUsd: 0,
+		liquidated7dUsd: 0,
+		ethBorrowUsd: 0,
+		ethDepositUsd: 0,
+		ethPriceUsd: null,
+		ethMarketCount: 0,
+	}
+
 	try {
 		const response = await fetchImpl(gatewayUrl(target.subgraphId, apiKey), {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
-				query: ACCOUNT_BORROW_POSITIONS_QUERY,
+				query: PROTOCOL_RISK_QUERY,
 				variables: { account: account.toLowerCase() },
 			}),
 		})
 
-		const json = (await response.json()) as GraphQLResponse<AccountBorrowPositionsResult>
-
+		const json = (await response.json()) as GraphQLResponse<ProtocolRiskResult>
 		if (!response.ok || (json.errors && json.errors.length > 0)) {
 			const message = json.errors?.map((e) => e.message).join('; ') ?? `HTTP ${response.status}`
-			return { target, ok: false, borrowExposureUsd: 0, positionCount: 0, error: message }
+			return { ...empty, error: message }
 		}
 
-		const positions = json.data?.account?.positions ?? []
-		const borrowExposureUsd = positions.reduce((sum, p) => sum + positionUsd(p), 0)
+		const data = json.data
+		const positions = data?.account?.positions ?? []
+		const snapshots = data?.financialsDailySnapshots ?? []
+		const markets = data?.markets ?? []
+		const ethMarkets = markets.filter((m) => ETH_SYMBOLS.has(m.inputToken?.symbol ?? ''))
 
-		return { target, ok: true, borrowExposureUsd, positionCount: positions.length }
-	} catch (err) {
 		return {
 			target,
-			ok: false,
-			borrowExposureUsd: 0,
-			positionCount: 0,
-			error: err instanceof Error ? err.message : String(err),
+			ok: true,
+			borrowExposureUsd: positions.reduce((sum, p) => sum + positionUsd(p), 0),
+			positionCount: positions.length,
+			totalBorrowUsd: num(snapshots[0]?.totalBorrowBalanceUSD),
+			liquidated7dUsd: snapshots.reduce((sum, s) => sum + num(s.dailyLiquidateUSD), 0),
+			ethBorrowUsd: ethMarkets.reduce((sum, m) => sum + num(m.totalBorrowBalanceUSD), 0),
+			ethDepositUsd: ethMarkets.reduce((sum, m) => sum + num(m.totalDepositBalanceUSD), 0),
+			ethPriceUsd: median(ethMarkets.map((m) => num(m.inputToken.lastPriceUSD))),
+			ethMarketCount: ethMarkets.length,
 		}
+	} catch (err) {
+		return { ...empty, error: err instanceof Error ? err.message : String(err) }
 	}
 }
 
 /**
- * Composition step: fans `ACCOUNT_BORROW_POSITIONS_QUERY` out across every
- * registered protocol (or a caller-supplied subset) in parallel, then sums
- * the USD exposure from every protocol that answered successfully. This is
- * the "standardized schema, composed across protocols" leverage the Graph
- * track asks for — there is exactly one query definition in this file, and
- * it is reused as-is for Aave v3, Compound v3, and Spark Lend.
+ * Market stress, in basis points of extra health-factor buffer demanded.
+ *
+ * Two live, standardized inputs, both aggregated across every protocol that
+ * answered:
+ *   - liquidation intensity: value liquidated in the snapshot window relative to
+ *     total borrows. A market that is actively liquidating is a market where a
+ *     falling collateral price turns into forced selling.
+ *   - collateral utilization: borrowed / supplied for the ETH markets. A highly
+ *     utilized market cannot absorb a large liquidation without slippage.
+ *
+ * Both are dimensionless ratios, which is the only reason they can be summed
+ * across protocols at all — that comparability is what the standardized schema buys.
  */
-export async function getCrossProtocolBorrowExposure(
+export function computeMarketStressBps(
+	liquidationIntensityBps: number,
+	utilizationPct: number,
+): number {
+	// Utilization contributes only above 70%: below that the market is liquid enough
+	// that a liquidation is unremarkable.
+	const utilizationPressure = Math.max(0, utilizationPct - 70) * 20
+	const stress = liquidationIntensityBps * 10 + utilizationPressure
+	return Math.round(Math.min(stress, 5_000)) // cap the buffer at +50%
+}
+
+/**
+ * Fans `PROTOCOL_RISK_QUERY` out across every registered protocol in parallel and
+ * folds the answers into the signals the confidential policy consumes.
+ */
+export async function getGraphRiskSignals(
 	account: string,
 	apiKey: string,
 	targets: LendingSubgraphTarget[] = LENDING_SUBGRAPHS,
 	fetchImpl: typeof fetch = fetch,
-): Promise<CrossProtocolExposureResult> {
+): Promise<GraphRiskSignals> {
 	const perProtocol = await Promise.all(
-		targets.map((target) => queryProtocolBorrowExposure(target, account, apiKey, fetchImpl)),
+		targets.map((target) => queryProtocolRisk(target, account, apiKey, fetchImpl)),
 	)
+	const answered = perProtocol.filter((r) => r.ok)
 
-	const totalBorrowExposureUsd = perProtocol
-		.filter((r) => r.ok)
-		.reduce((sum, r) => sum + r.borrowExposureUsd, 0)
+	const sum = (pick: (r: ProtocolRisk) => number) => answered.reduce((a, r) => a + pick(r), 0)
+
+	const totalBorrowUsd = sum((r) => r.totalBorrowUsd)
+	const liquidated7dUsd = sum((r) => r.liquidated7dUsd)
+	const ethBorrowUsd = sum((r) => r.ethBorrowUsd)
+	const ethDepositUsd = sum((r) => r.ethDepositUsd)
+
+	const liquidationIntensityBps =
+		totalBorrowUsd > 0 ? (liquidated7dUsd / totalBorrowUsd) * 10_000 : 0
+	const collateralUtilizationPct = ethDepositUsd > 0 ? (ethBorrowUsd / ethDepositUsd) * 100 : 0
 
 	return {
 		account,
-		totalBorrowExposureUsd,
-		perProtocol,
 		queriedAt: new Date().toISOString(),
+		degraded: answered.length === 0,
+		protocolsAnswered: answered.length,
+
+		crossProtocolBorrowExposureUsd: sum((r) => r.borrowExposureUsd),
+
+		collateralAssetSymbol: 'ETH',
+		collateralPriceUsd: median(
+			answered.map((r) => r.ethPriceUsd ?? 0).filter((p): p is number => p > 0),
+		),
+		collateralUtilizationPct,
+		liquidationIntensityBps,
+		marketStressBps: computeMarketStressBps(liquidationIntensityBps, collateralUtilizationPct),
+
+		perProtocol,
 	}
 }

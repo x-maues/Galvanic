@@ -11,6 +11,8 @@
  *   4. Issue (mint) the initial supply to the operator (ERC-1594 `issue`).
  *   5. Grant KYC to a freshly generated "investor" EVM address.
  *   6. Perform a KYC-gated compliant transfer of units to that investor.
+ *   7. Revoke the investor's KYC and prove a transfer is rejected by the
+ *      asset's compliance controls, then restore KYC for the final state.
  *
  * This demonstrates the protected-RWA leg of the "Firewall Margin" demo:
  * a real, compliance-gated tokenized asset whose lifecycle is enforced
@@ -130,7 +132,11 @@ const MATURITY_SECONDS = 180 * 24 * 60 * 60; // ~6 months
 const ASSET = {
   name: "Firewall Margin Short-Term Note",
   symbol: "FWM-NOTE",
-  isin: "US0378331005", // placeholder ISIN with a valid checksum (same one ATS's own example deploy scripts use)
+  // Not a real-world security: "ZZ" is ISO 3166's reserved user-assigned country
+  // code (never issued to any real market), so this can't collide with an actual
+  // issuer's ISIN. Checksum digit computed for real per ISO 6166 (verified against
+  // the ATS contract's own on-chain _validateISIN, which enforces length + checksum).
+  isin: "ZZFWMNOTE017",
   decimals: 2,
   currency: bytes3("USD"),
   nominalValue: "1000", // 10.00 (2 decimals)
@@ -139,8 +145,15 @@ const ASSET = {
   maturityDate: NOW + MATURITY_SECONDS,
 };
 
-const INITIAL_SUPPLY = 100_000n; // base units (100,000 * 10^-2 = 1,000.00 notes)
-const TRANSFER_AMOUNT = 1_000n; // base units transferred to the investor address
+// decimals = 2, nominalValue = 10.00 USD per note.
+const INITIAL_SUPPLY = 10_000_000n; // 100,000.00 notes = $1,000,000 issued
+const TRANSFER_AMOUNT = 300_000n; //   3,000.00 notes = $30,000 to the holder
+
+// The holder of the protected note. Defaults to the Sepolia margin account so the
+// SAME address holds the ATS security token on Hedera and the cross-margin
+// position on Sepolia — that identity is what makes the note recognisable as this
+// account's collateral without a bridge. Falls back to a fresh address if unset.
+const NOTE_HOLDER = process.env.HEDERA_NOTE_HOLDER?.trim();
 
 // -----------------------------------------------------------------------------
 // 3. Main
@@ -244,6 +257,8 @@ async function main() {
     { role: ATS_ROLES.ROLE_KYC, members: [wallet.address] }, // grantKyc / revokeKyc
     { role: ATS_ROLES.ROLE_ISSUER, members: [wallet.address] }, // issue / mint
     { role: ATS_ROLES.ROLE_PAUSER, members: [wallet.address] }, // pause / unpause (available, not used by default flow below)
+    { role: ATS_ROLES.ROLE_CORPORATE_ACTION, members: [wallet.address] }, // setCoupon
+    { role: ATS_ROLES.ROLE_SNAPSHOT, members: [wallet.address] }, // coupon record-date snapshot
   ];
 
   const securityData = {
@@ -339,7 +354,7 @@ async function main() {
   // Step 2 — Register operator as a trusted KYC issuer (SSI Management facet)
   // ---------------------------------------------------------------------------
   log("LIFECYCLE 1/5", `Registering operator (${wallet.address}) as a trusted KYC issuer ...`);
-  const addIssuerTx = await bond.addIssuer(wallet.address);
+  const addIssuerTx = await bond.addIssuer(wallet.address, { gasLimit: GAS_LIMIT.high });
   await addIssuerTx.wait();
   log("LIFECYCLE 1/5", `addIssuer confirmed: ${hashscanTx(addIssuerTx.hash)}`);
 
@@ -354,6 +369,7 @@ async function main() {
     0,
     MAX_UINT256,
     wallet.address,
+    { gasLimit: GAS_LIMIT.high },
   );
   await grantKycSelfTx.wait();
   log("LIFECYCLE 2/5", `grantKyc(operator) confirmed: ${hashscanTx(grantKycSelfTx.hash)}`);
@@ -362,15 +378,22 @@ async function main() {
   // Step 4 — Issue (mint) the initial supply to the operator
   // ---------------------------------------------------------------------------
   log("LIFECYCLE 3/5", `Issuing ${INITIAL_SUPPLY} base units to operator ...`);
-  const issueTx = await bond.issue(wallet.address, INITIAL_SUPPLY, "0x");
+  const issueTx = await bond.issue(wallet.address, INITIAL_SUPPLY, "0x", { gasLimit: GAS_LIMIT.high });
   await issueTx.wait();
   log("LIFECYCLE 3/5", `issue confirmed: ${hashscanTx(issueTx.hash)}`);
 
   // ---------------------------------------------------------------------------
   // Step 5 — Grant KYC to a freshly generated "investor" address
   // ---------------------------------------------------------------------------
-  const investor = ethers.Wallet.createRandom();
-  log("LIFECYCLE 4/5", `Generated investor address: ${investor.address} (${hashscanAddress(investor.address)})`);
+  const investor = NOTE_HOLDER
+    ? { address: ethers.getAddress(NOTE_HOLDER) }
+    : ethers.Wallet.createRandom();
+  log(
+    "LIFECYCLE 4/5",
+    NOTE_HOLDER
+      ? `Note holder (also the Sepolia margin account): ${investor.address} (${hashscanAddress(investor.address)})`
+      : `Generated investor address: ${investor.address} (${hashscanAddress(investor.address)})`,
+  );
   log("LIFECYCLE 4/5", `Granting KYC to investor ...`);
   const grantKycInvestorTx = await bond.grantKyc(
     investor.address,
@@ -378,6 +401,7 @@ async function main() {
     0,
     MAX_UINT256,
     wallet.address,
+    { gasLimit: GAS_LIMIT.high },
   );
   await grantKycInvestorTx.wait();
   log("LIFECYCLE 4/5", `grantKyc(investor) confirmed: ${hashscanTx(grantKycInvestorTx.hash)}`);
@@ -390,9 +414,95 @@ async function main() {
     DEFAULT_PARTITION,
     { to: investor.address, value: TRANSFER_AMOUNT },
     "0x",
+    { gasLimit: GAS_LIMIT.high },
   );
   await transferTx.wait();
   log("LIFECYCLE 5/5", `transferByPartition confirmed: ${hashscanTx(transferTx.hash)}`);
+
+  // ---------------------------------------------------------------------------
+  // Step 7 — Schedule and reach a real coupon corporate action
+  // ---------------------------------------------------------------------------
+  // A bond that never pays is a token with a name on it. This schedules a coupon
+  // through the ATS Coupon facet, waits for its record date to pass on-chain, and
+  // reads back the amount the holder is owed from the snapshot the contract took.
+  // Nothing here is computed off-chain.
+  const couponNow = Math.floor(Date.now() / 1000);
+  const COUPON_RECORD_DELAY = 25; // seconds — short enough to reach inside this run
+  const couponParams = {
+    recordDate: couponNow + COUPON_RECORD_DELAY,
+    executionDate: couponNow + COUPON_RECORD_DELAY + 10,
+    startDate: ASSET.startingDate,
+    endDate: couponNow + COUPON_RECORD_DELAY,
+    fixingDate: couponNow + COUPON_RECORD_DELAY,
+    rate: 250n, // 2.50% with rateDecimals = 2
+    rateDecimals: 2,
+    rateStatus: 1, // RateCalculationStatus.SET — a fixed-rate coupon
+  };
+
+  log("CORPORATE ACTION", `Scheduling a ${Number(couponParams.rate) / 100}% coupon, record date in ${COUPON_RECORD_DELAY}s ...`);
+  const setCouponTx = await bond.setCoupon(couponParams, { gasLimit: GAS_LIMIT.high });
+  const setCouponReceipt = await setCouponTx.wait();
+  log("CORPORATE ACTION", `setCoupon confirmed: ${hashscanTx(setCouponTx.hash)}`);
+
+  const couponCount = await bond.getCouponCount();
+  const couponId = couponCount; // one-indexed, and this is the only coupon on the asset
+  log("CORPORATE ACTION", `Coupon id ${couponId.toString()} registered on the asset.`);
+
+  log("CORPORATE ACTION", `Waiting ${COUPON_RECORD_DELAY + 8}s for the record date to pass ...`);
+  await new Promise((resolve) => setTimeout(resolve, (COUPON_RECORD_DELAY + 8) * 1000));
+
+  const couponForHolder = await bond.getCouponFor(couponId, investor.address);
+  const couponAmount = {
+    recordDateReached: couponForHolder.couponAmount.recordDateReached,
+    tokenBalanceAtRecordDate: couponForHolder.tokenBalance.toString(),
+    numerator: couponForHolder.couponAmount.numerator.toString(),
+    denominator: couponForHolder.couponAmount.denominator.toString(),
+  };
+  if (!couponAmount.recordDateReached) {
+    log("CORPORATE ACTION", "Record date not yet reflected on-chain; the coupon is scheduled and readable, amount pending.");
+  } else {
+    const payable =
+      Number(couponForHolder.couponAmount.numerator) / Number(couponForHolder.couponAmount.denominator);
+    log(
+      "CORPORATE ACTION",
+      `Holder is owed ${payable.toFixed(2)} USD on balance ${couponForHolder.tokenBalance.toString()} captured at the record date.`,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Step 7 — Exercise the compliance control, not just configure it
+  // ---------------------------------------------------------------------------
+  log("COMPLIANCE", "Revoking investor KYC to exercise transfer restriction ...");
+  const revokeKycInvestorTx = await bond.revokeKyc(investor.address, { gasLimit: GAS_LIMIT.high });
+  await revokeKycInvestorTx.wait();
+  log("COMPLIANCE", `revokeKyc(investor) confirmed: ${hashscanTx(revokeKycInvestorTx.hash)}`);
+
+  let rejectedTransferConfirmed = false;
+  try {
+    await bond.transferByPartition.staticCall(
+      DEFAULT_PARTITION,
+      { to: investor.address, value: 1n },
+      "0x",
+    );
+  } catch {
+    rejectedTransferConfirmed = true;
+    log("COMPLIANCE", "Transfer to the non-KYC investor was rejected by the asset contract.");
+  }
+  if (!rejectedTransferConfirmed) {
+    throw new Error("Compliance preflight failed: transfer succeeded after investor KYC was revoked.");
+  }
+
+  log("COMPLIANCE", "Restoring investor KYC for the protected holding ...");
+  const regrantKycInvestorTx = await bond.grantKyc(
+    investor.address,
+    "firewall-margin-investor-vc-restored",
+    0,
+    MAX_UINT256,
+    wallet.address,
+    { gasLimit: GAS_LIMIT.high },
+  );
+  await regrantKycInvestorTx.wait();
+  log("COMPLIANCE", `grantKyc(investor) restored: ${hashscanTx(regrantKycInvestorTx.hash)}`);
 
   // ---------------------------------------------------------------------------
   // Verification reads — evidence for the demo
@@ -427,7 +537,6 @@ async function main() {
     },
     investor: {
       evmAddress: investor.address,
-      privateKey: investor.privateKey, // demo-only throwaway key, safe to log/store locally
       balanceOfDefaultPartition: investorBalance.toString(),
     },
     transactions: {
@@ -437,6 +546,33 @@ async function main() {
       issue: { hash: issueTx.hash, url: hashscanTx(issueTx.hash) },
       grantKycInvestor: { hash: grantKycInvestorTx.hash, url: hashscanTx(grantKycInvestorTx.hash) },
       transferByPartition: { hash: transferTx.hash, url: hashscanTx(transferTx.hash) },
+      setCoupon: { hash: setCouponTx.hash, url: hashscanTx(setCouponTx.hash) },
+      revokeKycInvestor: { hash: revokeKycInvestorTx.hash, url: hashscanTx(revokeKycInvestorTx.hash) },
+      regrantKycInvestor: { hash: regrantKycInvestorTx.hash, url: hashscanTx(regrantKycInvestorTx.hash) },
+    },
+    compliance: {
+      transferRejectedAfterKycRevocation: rejectedTransferConfirmed,
+      evidence: "static transfer preflight reverted while investor KYC was revoked",
+    },
+    corporateAction: {
+      type: "coupon",
+      couponId: couponId.toString(),
+      ratePct: Number(couponParams.rate) / 100,
+      recordDate: couponParams.recordDate,
+      executionDate: couponParams.executionDate,
+      holder: investor.address,
+      ...couponAmount,
+      evidence:
+        "coupon scheduled through the ATS Coupon facet; holder balance and payable amount read back " +
+        "from the on-chain record-date snapshot",
+    },
+    note: {
+      unitDecimals: Number(onChainDecimals),
+      nominalValueUsd: Number(ASSET.nominalValue) / 10 ** ASSET.nominalValueDecimals,
+      holderUnits: investorBalance.toString(),
+      holderValueUsd:
+        (Number(investorBalance) / 10 ** Number(onChainDecimals)) *
+        (Number(ASSET.nominalValue) / 10 ** ASSET.nominalValueDecimals),
     },
     generatedAt: new Date().toISOString(),
   };

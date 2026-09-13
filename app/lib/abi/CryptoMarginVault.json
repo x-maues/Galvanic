@@ -22,7 +22,7 @@
   },
   {
     "inputs": [],
-    "name": "InsufficientDebt",
+    "name": "BorrowingRestricted",
     "type": "error"
   },
   {
@@ -97,6 +97,25 @@
       },
       {
         "indexed": false,
+        "internalType": "bool",
+        "name": "restricted",
+        "type": "bool"
+      }
+    ],
+    "name": "BorrowingRestrictionUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": false,
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
@@ -149,6 +168,25 @@
       {
         "indexed": true,
         "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum CryptoMarginVault.MarginMode",
+        "name": "mode",
+        "type": "uint8"
+      }
+    ],
+    "name": "MarginModeUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
         "name": "previousOwner",
         "type": "address"
       },
@@ -173,6 +211,69 @@
       }
     ],
     "name": "PriceUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "shortfallUsd",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "protectedValueUsd",
+        "type": "uint256"
+      }
+    ],
+    "name": "ProtectedCollateralPreserved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "valueUsd",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "shortfallUsd",
+        "type": "uint256"
+      }
+    ],
+    "name": "ProtectedCollateralSeized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "registry",
+        "type": "address"
+      }
+    ],
+    "name": "RegistryUpdated",
     "type": "event"
   },
   {
@@ -227,6 +328,25 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "borrowingRestricted",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "collateralToken",
     "outputs": [
@@ -247,6 +367,44 @@
         "internalType": "address",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "cryptoHealthFactor",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "cryptoValue",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -355,6 +513,25 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "marginMode",
+    "outputs": [
+      {
+        "internalType": "enum CryptoMarginVault.MarginMode",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "owner",
     "outputs": [
@@ -392,6 +569,45 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "debtToCover",
+        "type": "uint256"
+      }
+    ],
+    "name": "previewLiquidation",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "cryptoSeizedUsd",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "shortfallUsd",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "protectedSeizedUsdPooled",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "protectedSeizedUsdFirewall",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "price",
     "outputs": [
@@ -399,6 +615,57 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "protectedRecognitionRevoked",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "protectedValue",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "registry",
+    "outputs": [
+      {
+        "internalType": "contract ProtectedCollateralRegistry",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -420,6 +687,37 @@
       }
     ],
     "name": "repay",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "rwaHaircutBps",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "restricted",
+        "type": "bool"
+      }
+    ],
+    "name": "setBorrowingRestriction",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -453,6 +751,37 @@
   {
     "inputs": [
       {
+        "internalType": "enum CryptoMarginVault.MarginMode",
+        "name": "mode",
+        "type": "uint8"
+      }
+    ],
+    "name": "setMarginMode",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "internalType": "enum CryptoMarginVault.MarginMode",
+        "name": "mode",
+        "type": "uint8"
+      }
+    ],
+    "name": "setMarginModeFor",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "newPrice",
         "type": "uint256"
@@ -461,6 +790,38 @@
     "name": "setPrice",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract ProtectedCollateralRegistry",
+        "name": "newRegistry",
+        "type": "address"
+      }
+    ],
+    "name": "setRegistry",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "totalCollateralValue",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {

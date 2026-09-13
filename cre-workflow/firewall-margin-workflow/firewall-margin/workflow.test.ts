@@ -1,229 +1,125 @@
-import { describe, expect } from 'bun:test'
-import type { TeeRuntime } from '@chainlink/cre-sdk'
-import { test } from '@chainlink/cre-sdk/test'
-import { computeRiskScore, decideVerdict, initWorkflow, onCronTrigger } from './workflow'
+import { describe, expect, it } from 'bun:test'
+import type { Address } from 'viem'
+import { computeMarketStressBps, decideVerdict, requiredHealthFactor } from './workflow'
 
-// The public test surface does not yet ship a TEE runtime factory, so we stand
-// up the small slice of `TeeRuntime` the handler actually uses — same
-// approach as the hello-confidential-workflows-ts template.
-const ACCOUNT = '0x1111111111111111111111111111111111111111'
+// The handler's I/O is exercised end to end by `cre workflow simulate` against live
+// Hedera, Graph and Sepolia. What is worth unit-testing is the part a judge has to
+// trust without running anything: the decision itself, and specifically the two
+// properties the product's safety claim rests on.
 
-const HEALTHY_POSITION = {
-	collateral_asset_symbol: 'ETH',
-	collateral_balance_usd: 45000,
-	health_factor: 1.6,
-	loan_to_value_pct: 55,
-	liquidation_threshold_pct: 78,
+const ACCOUNT = '0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602' as Address
+
+const POLICY = {
+	minHealthFactor: 1.15,
+	liquidationLtvThresholdPct: 78,
+	maxCrossProtocolExposureUsd: 250_000,
+	maxLiquidationPct: 50,
+	maxMarketStressBps: 250,
 }
 
-const STRESSED_POSITION = {
-	collateral_asset_symbol: 'ETH',
-	collateral_balance_usd: 45000,
-	health_factor: 1.02,
-	loan_to_value_pct: 79,
-	liquidation_threshold_pct: 78,
-}
+const NOTE = { token: '0x0b85d6db3D300B695a40C463B8669C3e76Bd982b' as Address, units: 300_000n, valueUsd: 30_000 }
 
-const LOW_EXPOSURE = { cross_protocol_borrow_exposure_usd: 5000 }
-
-const makeConfig = () => ({
-	schedule: '0 */1 * * * *',
-	positionApiUrl: 'http://mock/position',
-	exposureApiUrl: 'http://mock/exposure',
-	secretsIds: {
-		minHealthFactorId: 'MIN_HEALTH_FACTOR',
-		liquidationLtvThresholdId: 'LIQUIDATION_LTV_THRESHOLD',
-		maxCrossProtocolExposureUsdId: 'MAX_CROSS_PROTOCOL_EXPOSURE_USD',
-		maxLiquidationPctId: 'MAX_LIQUIDATION_PCT',
-	},
-	onchain: {
-		enabled: false,
-		chainSelectorName: 'ethereum-testnet-sepolia',
-		executorAddress: '0x000000000000000000000000000000000000dEaD',
-		account: ACCOUNT,
-	},
+/** The demo account: healthy overall, insolvent on crypto alone. */
+const position = (over: Partial<Parameters<typeof decideVerdict>[1]> = {}) => ({
+	collateralAssetSymbol: 'fmETH',
+	cryptoValueUsd: 27_177,
+	protectedValueUsd: 28_500,
+	debtUsd: 35_000,
+	healthFactor: 1.27,
+	loanToValuePct: 62.9,
+	liquidationThresholdPct: 80,
+	...over,
 })
 
-const SECRET_VALUES: Record<string, string> = {
-	MIN_HEALTH_FACTOR: '1.1',
-	LIQUIDATION_LTV_THRESHOLD: '78',
-	MAX_CROSS_PROTOCOL_EXPOSURE_USD: '20000',
-	MAX_LIQUIDATION_PCT: '50',
-}
+const market = (over: Partial<Parameters<typeof decideVerdict>[2]> = {}) => ({
+	crossProtocolBorrowExposureUsd: 0,
+	marketStressBps: 11,
+	collateralPriceUsd: 2717,
+	protocolsAnswered: 3,
+	...over,
+})
 
-type FakeTeeRuntimeOptions = {
-	position?: typeof HEALTHY_POSITION
-	exposure?: typeof LOW_EXPOSURE
-}
+describe('market stress from The Graph', () => {
+	it('adds no buffer in a calm, liquid market', () => {
+		expect(computeMarketStressBps(0, 10)).toBe(0)
+	})
 
-const makeFakeTeeRuntime = ({ position = HEALTHY_POSITION, exposure = LOW_EXPOSURE }: FakeTeeRuntimeOptions = {}) => {
-	const reports: unknown[] = []
-	const logs: string[] = []
-	let callIndex = 0
+	it('raises the required health factor above the private floor', () => {
+		const calm = requiredHealthFactor(POLICY, 0)
+		const stressed = requiredHealthFactor(POLICY, computeMarketStressBps(40, 92))
+		expect(calm).toBe(1.15)
+		expect(stressed).toBeGreaterThan(calm)
+	})
 
-	const runtime = {
-		config: makeConfig(),
-		getSecrets: (requests: { id: string }[]) => ({
-			result: () =>
-				Object.fromEntries(requests.map((r) => [r.id, { id: r.id, value: SECRET_VALUES[r.id] }])),
-		}),
-		callCapability: () => {
-			// Alternates between the position and exposure fetch, matching the
-			// two `getJson` calls the handler makes in order.
-			const body = callIndex === 0 ? position : exposure
-			callIndex += 1
-			return {
-				result: () => ({
-					statusCode: 200,
-					body: new TextEncoder().encode(JSON.stringify(body)),
-				}),
-			}
-		},
-		log: (message: string) => logs.push(message),
-		usingTheDons: () => ({
-			report: (input: unknown) => {
-				reports.push(input)
-				return { result: () => ({}) }
-			},
-		}),
-	}
+	it('caps the buffer so live data can never run away with the policy', () => {
+		expect(computeMarketStressBps(1e9, 100)).toBe(5_000)
+	})
+})
 
-	return { runtime: runtime as unknown as TeeRuntime<ReturnType<typeof makeConfig>>, reports, logs }
-}
+describe('decideVerdict', () => {
+	it('holds a position that is within policy', () => {
+		const verdict = decideVerdict(ACCOUNT, position(), market(), NOTE, POLICY)
+		expect(verdict.action).toBe('hold')
+		expect(verdict.amountUsd).toBe(0)
+	})
 
-describe('computeRiskScore + decideVerdict', () => {
-	test('does not liquidate when health, LTV, and exposure are all within policy', () => {
+	it('liquidates when the health factor falls below what the market demands', () => {
+		const verdict = decideVerdict(ACCOUNT, position({ healthFactor: 0.7 }), market(), NOTE, POLICY)
+		expect(verdict.action).toBe('liquidate')
+		expect(verdict.reason).toContain('1.15')
+	})
+
+	// The safety property, stated as a test: the size of a liquidation is a fraction
+	// of DEBT. It is never a function of the protected note's value, because a policy
+	// that sized against the note would already have crossed the firewall.
+	it('sizes the liquidation against debt, never against the protected note', () => {
+		const base = position({ healthFactor: 0.7 })
+		const small = decideVerdict(ACCOUNT, base, market(), NOTE, POLICY)
+		const huge = decideVerdict(ACCOUNT, base, market(), { ...NOTE, valueUsd: 10_000_000 }, POLICY)
+
+		expect(small.amountUsd).toBe(17_500) // 50% of $35,000 of debt
+		expect(huge.amountUsd).toBe(small.amountUsd)
+	})
+
+	it('never liquidates on external exposure alone — it restricts borrowing', () => {
 		const verdict = decideVerdict(
 			ACCOUNT,
-			{
-				collateralAssetSymbol: 'ETH',
-				collateralBalanceUsd: 45000,
-				healthFactor: 1.6,
-				loanToValuePct: 55,
-				liquidationThresholdPct: 78,
-			},
-			{ crossProtocolBorrowExposureUsd: 5000 },
-			{
-				minHealthFactor: 1.1,
-				liquidationLtvThresholdPct: 78,
-				maxCrossProtocolExposureUsd: 20000,
-				maxLiquidationPct: 50,
-			},
+			position(),
+			market({ crossProtocolBorrowExposureUsd: 12_000_000 }),
+			NOTE,
+			POLICY,
 		)
-
+		expect(verdict.action).toBe('restrict_borrowing')
 		expect(verdict.liquidate).toBe(false)
 		expect(verdict.amountUsd).toBe(0)
 	})
 
-	test('liquidates the crypto leg when health factor breaches policy, capped by maxLiquidationPct', () => {
+	it('restricts borrowing when the market is too stressed to absorb a liquidation', () => {
+		const verdict = decideVerdict(ACCOUNT, position(), market({ marketStressBps: 900 }), NOTE, POLICY)
+		expect(verdict.action).toBe('restrict_borrowing')
+	})
+
+	it('a crypto-side breach outranks an exposure breach, and still only liquidates', () => {
 		const verdict = decideVerdict(
 			ACCOUNT,
-			{
-				collateralAssetSymbol: 'ETH',
-				collateralBalanceUsd: 45000,
-				healthFactor: 1.02,
-				loanToValuePct: 79,
-				liquidationThresholdPct: 78,
-			},
-			{ crossProtocolBorrowExposureUsd: 5000 },
-			{
-				minHealthFactor: 1.1,
-				liquidationLtvThresholdPct: 78,
-				maxCrossProtocolExposureUsd: 20000,
-				maxLiquidationPct: 50,
-			},
+			position({ healthFactor: 0.7 }),
+			market({ crossProtocolBorrowExposureUsd: 12_000_000 }),
+			NOTE,
+			POLICY,
 		)
-
-		expect(verdict.liquidate).toBe(true)
-		expect(verdict.amountUsd).toBe(22500) // 50% of 45000
-		expect(verdict.reason).toContain('health factor')
+		expect(verdict.action).toBe('liquidate')
 	})
 
-	test('liquidates when cross-protocol exposure alone exceeds policy, even if the crypto leg is healthy', () => {
-		const verdict = decideVerdict(
-			ACCOUNT,
-			{
-				collateralAssetSymbol: 'ETH',
-				collateralBalanceUsd: 45000,
-				healthFactor: 1.6,
-				loanToValuePct: 55,
-				liquidationThresholdPct: 78,
-			},
-			{ crossProtocolBorrowExposureUsd: 30000 },
-			{
-				minHealthFactor: 1.1,
-				liquidationLtvThresholdPct: 78,
-				maxCrossProtocolExposureUsd: 20000,
-				maxLiquidationPct: 50,
-			},
-		)
+	it('publishes the attestation and the market buffer, but never a threshold', () => {
+		const verdict = decideVerdict(ACCOUNT, position(), market(), NOTE, POLICY)
+		const serialised = JSON.stringify(verdict)
 
-		expect(verdict.liquidate).toBe(true)
-		expect(verdict.reason).toContain('exposure')
-	})
+		expect(verdict.protectedUnits).toBe('300000')
+		expect(verdict.protectedValueUsd).toBe(30_000)
+		expect(verdict.marketStressBps).toBe(11)
 
-	test('risk score increases with health deficit, LTV buffer breach, and exposure overage', () => {
-		const policy = {
-			minHealthFactor: 1.1,
-			liquidationLtvThresholdPct: 78,
-			maxCrossProtocolExposureUsd: 20000,
-			maxLiquidationPct: 50,
-		}
-		const healthy = computeRiskScore(
-			{ collateralAssetSymbol: 'ETH', collateralBalanceUsd: 45000, healthFactor: 1.6, loanToValuePct: 55, liquidationThresholdPct: 78 },
-			{ crossProtocolBorrowExposureUsd: 5000 },
-			policy,
-		)
-		const stressed = computeRiskScore(
-			{ collateralAssetSymbol: 'ETH', collateralBalanceUsd: 45000, healthFactor: 1.02, loanToValuePct: 79, liquidationThresholdPct: 78 },
-			{ crossProtocolBorrowExposureUsd: 30000 },
-			policy,
-		)
-		expect(stressed).toBeGreaterThan(healthy)
-	})
-})
-
-describe('onCronTrigger', () => {
-	test('crosses back to the DON with only the verdict, never the policy thresholds', () => {
-		const { runtime, reports } = makeFakeTeeRuntime({ position: HEALTHY_POSITION, exposure: LOW_EXPOSURE })
-
-		const result = onCronTrigger(runtime)
-		const verdict = JSON.parse(result)
-
-		expect(verdict.liquidate).toBe(false)
-		expect(reports).toHaveLength(1)
-		expect(reports[0]).toMatchObject({ encoderName: 'evm', signingAlgo: 'ecdsa', hashingAlgo: 'keccak256' })
-	})
-
-	test('produces a liquidate verdict when the crypto leg is stressed', () => {
-		const { runtime } = makeFakeTeeRuntime({ position: STRESSED_POSITION, exposure: LOW_EXPOSURE })
-
-		const result = onCronTrigger(runtime)
-		const verdict = JSON.parse(result)
-
-		expect(verdict.liquidate).toBe(true)
-		expect(verdict.account.toLowerCase()).toBe(ACCOUNT.toLowerCase())
-		expect(verdict.amountUsd).toBeGreaterThan(0)
-	})
-
-	test('does not log policy thresholds or raw payloads', () => {
-		const { runtime, logs } = makeFakeTeeRuntime({ position: STRESSED_POSITION, exposure: LOW_EXPOSURE })
-
-		onCronTrigger(runtime)
-
-		for (const line of logs) {
-			expect(line).not.toContain('1.1') // MIN_HEALTH_FACTOR secret value
-			expect(line).not.toContain('20000') // MAX_CROSS_PROTOCOL_EXPOSURE_USD secret value
-		}
-	})
-})
-
-describe('initWorkflow', () => {
-	test('registers the cron handler with a Nitro TEE constraint', () => {
-		const handlers = initWorkflow(makeConfig())
-
-		expect(handlers).toHaveLength(1)
-		expect(handlers[0].fn).toBe(onCronTrigger)
-		expect(handlers[0].requirements).toBeDefined()
+		// The close factor and the exposure cap must not be recoverable from the report.
+		expect(serialised).not.toContain('250000')
+		expect(serialised).not.toContain(String(POLICY.maxLiquidationPct))
 	})
 })

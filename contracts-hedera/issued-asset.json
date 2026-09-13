@@ -1,0 +1,85 @@
+{
+  "network": "testnet",
+  "factoryAddress": "0xd1F118A40f3b02883D35909eF2517e7EDd78379d",
+  "resolverAddress": "0xBA2D5FC2083A0b8f164c50e65d782087fBA18E0a",
+  "bondAddress": "0x0b85d6db3D300B695a40C463B8669C3e76Bd982b",
+  "bondHashscan": "https://hashscan.io/testnet/contract/0x0b85d6db3D300B695a40C463B8669C3e76Bd982b",
+  "asset": {
+    "name": "Firewall Margin Short-Term Note",
+    "symbol": "FWM-NOTE",
+    "decimals": "2",
+    "isin": "ZZFWMNOTE017",
+    "totalSupply": "10000000"
+  },
+  "operator": {
+    "hederaAccountId": "0.0.10515059",
+    "evmAddress": "0xC3aAc660302139B91f5F7DF63e97C9Da9c764f90",
+    "balanceOfDefaultPartition": "9700000"
+  },
+  "investor": {
+    "evmAddress": "0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602",
+    "balanceOfDefaultPartition": "300000"
+  },
+  "transactions": {
+    "deployBond": {
+      "hash": "0xef0f5d7e64bc44680f94cd60fa1e705b4c169796fa8288d67de10abb59d8200a",
+      "url": "https://hashscan.io/testnet/transaction/0xef0f5d7e64bc44680f94cd60fa1e705b4c169796fa8288d67de10abb59d8200a"
+    },
+    "addIssuer": {
+      "hash": "0x3adfa00cd7a50e3b16c842100e5081d4afa2c5b9938b0cf1b4ac9ee96daeea99",
+      "url": "https://hashscan.io/testnet/transaction/0x3adfa00cd7a50e3b16c842100e5081d4afa2c5b9938b0cf1b4ac9ee96daeea99"
+    },
+    "grantKycOperator": {
+      "hash": "0x3f90a50d2f096c28cb14d8f6ca97b59f885796ba1200439393a5db2012df2a95",
+      "url": "https://hashscan.io/testnet/transaction/0x3f90a50d2f096c28cb14d8f6ca97b59f885796ba1200439393a5db2012df2a95"
+    },
+    "issue": {
+      "hash": "0xba2517b5c46700e6f651bd1209410592dabd1dc81b1b536e46924126cd0abef3",
+      "url": "https://hashscan.io/testnet/transaction/0xba2517b5c46700e6f651bd1209410592dabd1dc81b1b536e46924126cd0abef3"
+    },
+    "grantKycInvestor": {
+      "hash": "0xfb4227c128d48489af91f98483acc610fdd540cc8ee624dc5811e8b40e9662ae",
+      "url": "https://hashscan.io/testnet/transaction/0xfb4227c128d48489af91f98483acc610fdd540cc8ee624dc5811e8b40e9662ae"
+    },
+    "transferByPartition": {
+      "hash": "0x0de904634b2bd0b49fd3e454b354dca533910c8ad7dfd09a49d68a3295ffd032",
+      "url": "https://hashscan.io/testnet/transaction/0x0de904634b2bd0b49fd3e454b354dca533910c8ad7dfd09a49d68a3295ffd032"
+    },
+    "setCoupon": {
+      "hash": "0xf1771e89c73733fa923f4a992ae3eff4d57c332eda6464fd247c88bc579f9cd2",
+      "url": "https://hashscan.io/testnet/transaction/0xf1771e89c73733fa923f4a992ae3eff4d57c332eda6464fd247c88bc579f9cd2"
+    },
+    "revokeKycInvestor": {
+      "hash": "0xa5a64bff723abc63103404b935eb8938c88a02a9a14c80b1ce76eddc6854a05f",
+      "url": "https://hashscan.io/testnet/transaction/0xa5a64bff723abc63103404b935eb8938c88a02a9a14c80b1ce76eddc6854a05f"
+    },
+    "regrantKycInvestor": {
+      "hash": "0xf677bdc212e394c549fd00ee104cab2e4f108c61361dcaeb4afb3da6b58ce284",
+      "url": "https://hashscan.io/testnet/transaction/0xf677bdc212e394c549fd00ee104cab2e4f108c61361dcaeb4afb3da6b58ce284"
+    }
+  },
+  "compliance": {
+    "transferRejectedAfterKycRevocation": true,
+    "evidence": "static transfer preflight reverted while investor KYC was revoked"
+  },
+  "corporateAction": {
+    "type": "coupon",
+    "couponId": "1",
+    "ratePct": 2.5,
+    "recordDate": 1789302326,
+    "executionDate": 1789302336,
+    "holder": "0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602",
+    "recordDateReached": true,
+    "tokenBalanceAtRecordDate": "300000",
+    "numerator": "57750000000",
+    "denominator": "315360000000",
+    "evidence": "coupon scheduled through the ATS Coupon facet; holder balance and payable amount read back from the on-chain record-date snapshot"
+  },
+  "note": {
+    "unitDecimals": 2,
+    "nominalValueUsd": 10,
+    "holderUnits": "300000",
+    "holderValueUsd": 30000
+  },
+  "generatedAt": "2026-09-13T12:26:02.067Z"
+}

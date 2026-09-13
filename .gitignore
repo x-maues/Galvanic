@@ -18,9 +18,12 @@ cre-workflow/**/secrets.json
 # upstream reference clone, not our submission code
 cre-workflow/cre-templates/
 cre-workflow/firewall-margin-workflow/firewall-margin/node_modules/
-# generated evidence file from contracts-hedera/issue-asset.ts (contains a throwaway demo key)
-contracts-hedera/issued-asset.json
+# contracts-hedera/issued-asset.json IS committed on purpose: it is the Hedera
+# lifecycle evidence (bond address, HashScan links, every transaction hash). It
+# holds no key — the note holder is the Sepolia demo account, not a generated one.
 
-# internal/dev notes -- only the root README is public-facing
+# internal/dev scratch notes stay out; the judge-facing docs are committed.
 *.md
 !/README.md
+!/docs/*.md
+!/CLAUDE.md

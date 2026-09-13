@@ -1,17 +1,33 @@
 {
   "schedule": "0 */1 * * * *",
-  "positionApiUrl": "http://127.0.0.1:8788/firewall-margin/position",
-  "exposureApiUrl": "http://127.0.0.1:8790/firewall-margin/exposure?account=0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602",
+  "positionApiUrl": "http://127.0.0.1:8788/firewall-margin/position?account=0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602",
+  "graph": {
+    "gatewayBaseUrl": "https://gateway.thegraph.com/api",
+    "subgraphIds": [
+      "JCNWRypm7FYwV8fx5HhzZPSFaMxgkPuw4TnR3Gpi81zk",
+      "AwoxEZbiWLvv6e3QdvdMZw4WDURdGbvPfHmZRc8Dpfz9",
+      "GbKdmBe4ycCYCQLQSjqGg6UHYoYfbyJyq5WrG35pv1si"
+    ]
+  },
+  "hedera": {
+    "mirrorNodeUrl": "https://testnet.mirrornode.hedera.com/api/v1",
+    "bondAddress": "0x0b85d6db3D300B695a40C463B8669C3e76Bd982b",
+    "noteHolder": "0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602",
+    "noteDecimals": 2,
+    "unitPriceUsd": 10
+  },
   "secretsIds": {
     "minHealthFactorId": "MIN_HEALTH_FACTOR",
     "liquidationLtvThresholdId": "LIQUIDATION_LTV_THRESHOLD",
     "maxCrossProtocolExposureUsdId": "MAX_CROSS_PROTOCOL_EXPOSURE_USD",
-    "maxLiquidationPctId": "MAX_LIQUIDATION_PCT"
+    "maxLiquidationPctId": "MAX_LIQUIDATION_PCT",
+    "maxMarketStressBpsId": "MAX_MARKET_STRESS_BPS",
+    "graphApiKeyId": "GRAPH_API_KEY"
   },
   "onchain": {
     "enabled": false,
     "chainSelectorName": "ethereum-testnet-sepolia",
-    "executorAddress": "0x7dcD0E11a9C5e403CA109304a283732D71024029",
+    "executorAddress": "0x1fd4DCAecEC3964C99836F5969F441f2c67e473b",
     "account": "0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602"
   }
 }
