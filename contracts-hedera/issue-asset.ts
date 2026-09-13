@@ -164,6 +164,37 @@ async function main() {
   log("SETUP", `Factory:          ${FACTORY_ADDRESS} (${hashscanContract(FACTORY_ADDRESS)})`);
   log("SETUP", `BLR / Resolver:   ${RESOLVER_ADDRESS} (${hashscanContract(RESOLVER_ADDRESS)})`);
 
+  // Cross-check HEDERA_OPERATOR_ID against the mirror node and make sure its EVM address
+  // matches the key we just derived. Hashio (the JSON-RPC relay) requires the `from` account
+  // of any call to already exist on the ledger ("Sender account not found" otherwise), so a
+  // mismatched id/key pair is a common mistake worth catching here with a clear message
+  // instead of a cryptic relay error later.
+  try {
+    const res = await fetch(`${HEDERA_MIRROR_NODE_URL.replace(/\/$/, "")}/accounts/${HEDERA_OPERATOR_ID}`);
+    if (res.ok) {
+      const info = (await res.json()) as { evm_address?: string };
+      const mirrorEvmAddress = (info.evm_address || "").toLowerCase();
+      if (mirrorEvmAddress && mirrorEvmAddress !== wallet.address.toLowerCase()) {
+        throw new Error(
+          `HEDERA_OPERATOR_ID ${HEDERA_OPERATOR_ID} resolves to EVM address ${mirrorEvmAddress} on the ` +
+            `mirror node, but HEDERA_OPERATOR_KEY derives ${wallet.address}. Double-check the account ` +
+            `id/key pair in .env.`,
+        );
+      }
+      log("SETUP", `Mirror node confirms account ${HEDERA_OPERATOR_ID} exists and matches the operator key.`);
+    } else if (res.status === 404) {
+      throw new Error(
+        `HEDERA_OPERATOR_ID ${HEDERA_OPERATOR_ID} was not found on the mirror node (${HEDERA_MIRROR_NODE_URL}). ` +
+          `Double-check the account id, or that it exists on ${HEDERA_NETWORK}.`,
+      );
+    } else {
+      log("SETUP", `Mirror node lookup returned HTTP ${res.status}; skipping cross-check.`);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("HEDERA_OPERATOR_ID")) throw err;
+    log("SETUP", `Mirror node lookup failed (${err}); skipping cross-check and continuing.`);
+  }
+
   const balance = await provider.getBalance(wallet.address);
   log("SETUP", `Operator balance: ${ethers.formatEther(balance)} HBAR (as tinybar-wei via EVM view)`);
   if (balance === 0n) {
@@ -184,12 +215,17 @@ async function main() {
   // ---------------------------------------------------------------------------
   let bondConfigVersion: number;
   try {
-    const latest: bigint = await resolver.getLatestVersion(BOND_CONFIG_ID);
+    // NOTE: `getLatestVersion` (no suffix) resolves individual *facet* business-logic
+    // keys (e.g. RESOLVER_KEY_KYC) — it is NOT the right call for a factory
+    // "configuration" id like BOND_CONFIG_ID and returns 0 for it (verified live
+    // against testnet). The correct call for configuration ids is
+    // `getLatestVersionByConfiguration`, inherited from IDiamondCutManager.
+    const latest: bigint = await resolver.getLatestVersionByConfiguration(BOND_CONFIG_ID);
     bondConfigVersion = Number(latest);
     log("PREFLIGHT", `Bond config (key ${BOND_CONFIG_ID}) latest version on-chain: ${bondConfigVersion}`);
   } catch (err) {
     throw new Error(
-      `Could not read getLatestVersion(BOND_CONFIG_ID) from resolver at ${RESOLVER_ADDRESS}. ` +
+      `Could not read getLatestVersionByConfiguration(BOND_CONFIG_ID) from resolver at ${RESOLVER_ADDRESS}. ` +
         `Double-check RESOLVER_ADDRESS / HEDERA_JSON_RPC_URL are correct and reachable. Underlying error: ${err}`,
     );
   }
@@ -329,7 +365,7 @@ async function main() {
   // Step 5 — Grant KYC to a freshly generated "investor" address
   // ---------------------------------------------------------------------------
   const investor = ethers.Wallet.createRandom();
-  log("LIFECYCLE 4/5", `Generated investor address: ${investor.address}`);
+  log("LIFECYCLE 4/5", `Generated investor address: ${investor.address} (${hashscanAddress(investor.address)})`);
   log("LIFECYCLE 4/5", `Granting KYC to investor ...`);
   const grantKycInvestorTx = await bond.grantKyc(
     investor.address,

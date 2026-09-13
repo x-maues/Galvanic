@@ -15,3 +15,5 @@ cre-workflow/**/secrets.json
 # upstream reference clone, not our submission code
 cre-workflow/cre-templates/
 cre-workflow/firewall-margin-workflow/firewall-margin/node_modules/
+# generated evidence file from contracts-hedera/issue-asset.ts (contains a throwaway demo key)
+contracts-hedera/issued-asset.json
