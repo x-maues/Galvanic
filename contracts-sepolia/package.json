@@ -6,7 +6,8 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
-    "demo:trigger-stress": "hardhat run scripts/trigger-stress.ts --network sepolia"
+    "demo:trigger-stress": "hardhat run scripts/trigger-stress.ts --network sepolia",
+    "demo:setup-position": "hardhat run scripts/setup-demo-position.ts --network sepolia"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.2"
