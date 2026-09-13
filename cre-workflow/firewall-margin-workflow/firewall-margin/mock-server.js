@@ -1,5 +1,15 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import * as dotenv from 'dotenv'
 import express from 'express'
 import { createPublicClient, http, formatUnits } from 'viem'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+// Repo-root .env first (SEPOLIA_RPC_URL/SEPOLIA_VAULT/DEMO_ACCOUNT live there), then
+// an optional local override — same convention as subgraph/server.ts and
+// contracts-hedera/issue-asset.ts.
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') })
+dotenv.config({ path: path.resolve(__dirname, '.env') })
 
 const app = express()
 const PORT = Number(process.env.MOCK_PORT ?? 8788)

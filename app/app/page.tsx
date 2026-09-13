@@ -75,9 +75,9 @@ function Panel({
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 py-2 border-t border-line/60">
-      <span className="text-sm text-paper/50">{label}</span>
-      <span className="mono tnum text-sm text-right break-all">{value}</span>
+    <div className="flex flex-col gap-0.5 py-2 border-t border-line/60">
+      <span className="text-xs text-paper/50">{label}</span>
+      <span className="mono tnum text-sm break-all">{value}</span>
     </div>
   );
 }

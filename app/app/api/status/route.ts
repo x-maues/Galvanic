@@ -36,7 +36,10 @@ function readHederaStatus() {
   try {
     const raw = fs.readFileSync(env.hederaEvidencePath, "utf8");
     const data = JSON.parse(raw);
-    return { configured: true as const, ...data };
+    // issued-asset.json keeps the investor's throwaway demo key for local
+    // convenience — never forward it through a public API response.
+    const { privateKey, ...investor } = data.investor ?? {};
+    return { configured: true as const, ...data, investor };
   } catch {
     return { configured: false as const };
   }
