@@ -1,6 +1,6 @@
 <img src="logo.png" alt="Galvanic" width="72" />
 
-# Galvanic (ETHOnline 2026)
+# Galvanic
 
 ### Cross-margin, without cross-contamination.
 
@@ -48,7 +48,7 @@ Sepolia, driven by the enclave's own signed report. Transaction hashes land in
 
 ---
 
-## How the three sponsors each do a job nothing else could
+## Architecture: three systems, one mechanism
 
 This is one mechanism, not three integrations sitting next to each other. Remove any
 one and the product stops working.
@@ -129,7 +129,7 @@ the collateral could name the note.
 
 ---
 
-## Architecture
+## System diagram
 
 ```
   Hedera testnet                      Ethereum Sepolia
@@ -190,7 +190,7 @@ To prove the whole claim non-interactively: `cd contracts-sepolia && npm run dem
 
 ## What is real, and the one thing that is not
 
-Stated plainly, because a judge should not have to guess.
+Stated plainly, so you don't have to guess.
 
 | | |
 |---|---|
