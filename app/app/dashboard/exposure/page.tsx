@@ -66,7 +66,7 @@ export default function NetworkData() {
       <Card className="flex flex-col gap-4">
         <SectionHeading eyebrow="Try it against a real borrower" title="Whose exposure?" />
         <p className="text-sm text-paper/45 leading-relaxed max-w-3xl">
-          The demo account is fresh, so it has no borrows anywhere — the honest answer is
+          This account is fresh, so it has no borrows anywhere — the honest answer is
           $0. Point the same query at a real mainnet borrower and the exposure cap trips:
           the policy restricts new borrowing instead of liquidating, because debt owed
           elsewhere is not a breach of <em>this</em> position&apos;s terms.
@@ -78,7 +78,7 @@ export default function NetworkData() {
             </SecondaryButton>
           ))}
           <SecondaryButton disabled={busy !== null} onClick={() => setExposureAccount(null)}>
-            Back to demo account
+            Back to this account
           </SecondaryButton>
         </div>
         <div className="flex gap-2">

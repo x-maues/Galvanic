@@ -112,7 +112,7 @@ export default function Overview() {
       <div className="grid xl:grid-cols-[1fr_1fr] gap-4">
         {/* Controls */}
         <Card className="flex flex-col gap-5">
-          <SectionHeading eyebrow="Run the demo" title="Three controls" />
+          <SectionHeading eyebrow="This account" title="Controls" />
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <span className="text-xs text-paper/40">1 · Choose how this account&apos;s collateral may be treated</span>
@@ -138,7 +138,8 @@ export default function Overview() {
               </div>
               <p className="text-[11px] text-paper/30 leading-relaxed">
                 Restore re-marks fmETH at the live ETH price The Graph reports across Aave,
-                Compound and Spark. The crash is the one scripted input in the whole demo.
+                Compound and Spark. The crash is the one manually triggered input — everything
+                downstream of it is the system reacting for real.
               </p>
             </div>
 

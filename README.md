@@ -212,6 +212,47 @@ We would rather say this than let a screen imply a DON wrote it.
 
 ---
 
+## Deployed contracts and proof
+
+Everything below is a live testnet address or a mined transaction — click any of
+them.
+
+**Sepolia**
+
+| | |
+|---|---|
+| Demo account | [`0x4A30…0602`](https://sepolia.etherscan.io/address/0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602) |
+| `CryptoMarginVault` | [`0x3b3a…0c711`](https://sepolia.etherscan.io/address/0x3b3aFFcA57b32109d1C772bbA24D1c5d6D80c711) |
+| `ProtectedCollateralRegistry` | [`0xEf29…41728`](https://sepolia.etherscan.io/address/0xEf29220ea72702aa4d02414F2C894dff0fD41728) |
+| `FirewallMarginExecutor` | [`0x1fd4…e473b`](https://sepolia.etherscan.io/address/0x1fd4DCAecEC3964C99836F5969F441f2c67e473b) |
+
+**The same crash, settled two ways** — same account, same debt, same enclave
+verdict, only the margin mode differs:
+
+| | crash tx | settle tx | outcome |
+|---|---|---|---|
+| Pooled margin | [mark](https://sepolia.etherscan.io/tx/0x164c82a40a28eb777101d39910b02315ccaf2dfb6ae953ef014d547f1034a380) | [settle](https://sepolia.etherscan.io/tx/0x66729f8b32676843f2432796edf0c030bbc23b727ce52051dcfd2c26418dee77) | $16,201 seized from the note — contaminated |
+| Firewall | [mark](https://sepolia.etherscan.io/tx/0xf56de253a8e81070eec79bbf0e913331123a21c36a058e12572bd2d01fe984f2) | [settle](https://sepolia.etherscan.io/tx/0x4c09580ec7b7d7987660400c031f18897fee564e976aef91c75dc087516c667b) | $0 from the note — preserved |
+
+Full run, including the enclave's own verdict, in
+[`contracts-sepolia/prove-firewall.json`](contracts-sepolia/prove-firewall.json).
+
+**Hedera testnet**
+
+| | |
+|---|---|
+| Bond ([`FWM-NOTE`](https://hashscan.io/testnet/contract/0x0b85d6db3D300B695a40C463B8669C3e76Bd982b), ERC-1400) | [`0x0b85…d982b`](https://hashscan.io/testnet/contract/0x0b85d6db3D300B695a40C463B8669C3e76Bd982b) |
+| Issued | [tx](https://hashscan.io/testnet/transaction/0xba2517b5c46700e6f651bd1209410592dabd1dc81b1b536e46924126cd0abef3) |
+| Transferred to holder (KYC-gated) | [tx](https://hashscan.io/testnet/transaction/0x0de904634b2bd0b49fd3e454b354dca533910c8ad7dfd09a49d68a3295ffd032) |
+| Coupon scheduled (2.5%) | [tx](https://hashscan.io/testnet/transaction/0xf1771e89c73733fa923f4a992ae3eff4d57c332eda6464fd247c88bc579f9cd2) |
+| KYC revoked (compliance test) | [tx](https://hashscan.io/testnet/transaction/0xa5a64bff723abc63103404b935eb8938c88a02a9a14c80b1ce76eddc6854a05f) |
+| KYC restored | [tx](https://hashscan.io/testnet/transaction/0xf677bdc212e394c549fd00ee104cab2e4f108c61361dcaeb4afb3da6b58ce284) |
+
+All nine lifecycle transactions in
+[`contracts-hedera/issued-asset.json`](contracts-hedera/issued-asset.json).
+
+---
+
 ## Repository
 
 ```

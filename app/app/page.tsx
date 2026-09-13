@@ -178,7 +178,7 @@ export default function Landing() {
               body="Your tokenized bond stays on Hedera, under its own compliance rules. Galvanic reads what you hold and lets it back your loan — with no bridge, no wrapper, and nothing locked up."
             />
             <p className="text-xs text-paper/30 leading-relaxed">
-              In the live demo the bond is doing most of the work: the ETH alone couldn&apos;t
+              In this account, the bond is doing most of the work: the ETH alone couldn&apos;t
               support the loan.
             </p>
           </div>
