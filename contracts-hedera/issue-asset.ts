@@ -254,7 +254,12 @@ async function main() {
     rbacs,
     isControllable: true,
     isWhiteList: false, // control-list left in (empty) blacklist mode; KYC is the real compliance gate below
-    maxSupply: "0", // unlimited
+    // "Unlimited" is expressed as type(uint256).max, NOT 0 -- CapStorageWrapper.
+    // requireValidNewMaxSupply reverts NewMaxSupplyCannotBeZero() on a literal 0
+    // (verified via a static-call revert-selector lookup against the deployed
+    // Factory before the real deploy tx: selector 0x76f138fb decodes to
+    // ICap.NewMaxSupplyCannotBeZero() in CapStorageWrapper.sol).
+    maxSupply: ethers.MaxUint256.toString(),
     erc20MetadataInfo: {
       name: ASSET.name,
       symbol: ASSET.symbol,
