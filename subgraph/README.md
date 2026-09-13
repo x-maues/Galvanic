@@ -13,10 +13,13 @@ This directory answers the CRE workflow's placeholder comment directly
 
 ## Status in one line
 
-**Code complete and verified against the real Graph gateway. Blocked only on
-a paid-tier `GRAPH_API_KEY`** — every other part of the pipeline (subgraph
-discovery, ID resolution, query correctness, multi-protocol composition,
-server wiring, graceful mock fallback) is done and tested.
+**Fully live.** A real `GRAPH_API_KEY` (free tier) is wired in and querying
+the real Subgraph Studio gateway — 3 of 4 registered protocols return live
+results (the 4th, Aave v3 Base, currently has no active indexer allocation on
+the network — a real, transient network condition, correctly isolated
+per-protocol rather than failing the whole aggregate). See "Live results"
+below, including a real $52M-exposure account that demonstrates the Graph
+data independently driving the risk decision.
 
 ## What's here
 
@@ -185,10 +188,80 @@ This is meaningful, specific evidence, not a guess:
   without touching the network, so they stay green regardless of gateway
   availability.
 
+### Update: now running with a real key — live results
+
+A real free-tier `GRAPH_API_KEY` was added. First attempt returned `auth
+error: API key not found` even though the key was confirmed correct and
+unrestricted (no subgraph/domain allowlist configured, checked directly in
+Studio) — this was a new-key propagation delay at the gateway, not a config
+problem. A retry ~15 minutes later succeeded with no code or config changes.
+
+Real query against a fresh (empty) account:
+
+```bash
+$ curl -s "http://127.0.0.1:8790/firewall-margin/exposure?account=0x4A30478Fd4F84Abc7A2686D67Ce38D9264260602"
+{
+  "cross_protocol_borrow_exposure_usd": 0,
+  "source": "live",
+  "per_protocol": [
+    { "name": "Aave v3 (Ethereum)",    "ok": true,  "borrow_exposure_usd": 0, "position_count": 0 },
+    { "name": "Aave v3 (Base)",        "ok": false, "borrow_exposure_usd": 0, "position_count": 0,
+      "error": "subgraph not found: no allocations" },
+    { "name": "Compound v3 (Ethereum)","ok": true,  "borrow_exposure_usd": 0, "position_count": 0 },
+    { "name": "Spark Lend (Ethereum)", "ok": true,  "borrow_exposure_usd": 0, "position_count": 0 }
+  ]
+}
+```
+
+3/4 protocols now return genuine live results (`ok: true`) for a real
+address with no open positions. Aave v3 Base's `subgraph not found: no
+allocations` means no indexer is currently staking on that specific
+deployment — a real Graph Network condition (indexers choose which
+deployments to serve), not a bug in our code — and it's isolated to that one
+protocol exactly as `getCrossProtocolBorrowExposure` was designed to do.
+
+### Proof the Graph data independently drives the risk decision
+
+To make "cross-protocol exposure materially affects the risk decision"
+concrete rather than asserted, a real address was found via a live discovery
+query (`positions(where: {side: BORROWER, hashClosed: null}, orderBy:
+balance, orderDirection: desc, first: 5)` against the Aave v3 Ethereum
+subgraph — same query mechanism, no account filter) and used as the exposure
+account for one run:
+
+```bash
+$ curl -s "http://127.0.0.1:8790/firewall-margin/exposure?account=0x6142eb927529974c5cded66dafc57cb5aaaf73ab"
+{ "cross_protocol_borrow_exposure_usd": 52082909, "source": "live", ... }
+```
+
+That's a real ~$52.08M open borrow position on Aave v3, live on mainnet. With
+the CRE workflow's policy cap at `MAX_CROSS_PROTOCOL_EXPOSURE_USD=20000` and
+this account's **crypto-leg vault position left perfectly healthy (HF
+1.33)**, the confidential decision still came back:
+
+```json
+{
+  "liquidate": true,
+  "amountUsd": 10000,
+  "riskScore": 520629.09,
+  "reason": "cross-protocol exposure exceeds policy cap"
+}
+```
+
+i.e. the Graph-sourced number alone — independent of the crypto leg's own
+price/health-factor check — was sufficient to flip the verdict. This is not
+wired into the interactive frontend demo by default (doing so would make
+"Trigger stress"/"Heal" stop having any visible effect, since this account's
+exposure alone always breaches policy); it's a deliberate, separate,
+reproducible run — swap `exposureApiUrl`'s `?account=` in
+`config.staging.json` to the address above and re-run `cre workflow
+simulate` to reproduce.
+
 ### What a real `GRAPH_API_KEY` unlocks
 
-With a real key, the exact same request shown above returns real position
-data instead of an auth error — no code change needed, only the `.env` value.
+With a real key, the exact same requests shown above return real position
+data instead of an auth error — no code change needed, only the `.env` value
+(now done — see above).
 
 ## 3. The composition/standardization story, concretely
 

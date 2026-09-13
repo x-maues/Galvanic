@@ -33,6 +33,18 @@ executor deployed (`contracts-sepolia/`), `subgraph/server.ts` and/or
 9. **Close with the insight.** One risk engine, two collateral domains, one confidential
    decision — crypto absorbs stress, RWA never enters the blast radius.
 
+## Optional second scenario: exposure alone drives the decision
+
+The steps above trigger liquidation via a price crash. To prove the Graph-sourced
+cross-protocol exposure is independently load-bearing (not decorative), record a second,
+separate run: temporarily point `exposureApiUrl` in `cre-workflow/.../config.staging.json`
+at a real high-exposure address (see `subgraph/README.md` — a real ~$52M Aave v3 borrower
+found via a live discovery query) and re-run `cre workflow simulate` with the crypto leg
+left perfectly healthy. The verdict still flips to `liquidate: true`, reason
+`"cross-protocol exposure exceeds policy cap"` — proof the Graph data alone, independent of
+price/health, can drive the protective action. Revert the config afterward to keep the
+interactive frontend demo (price-driven) working.
+
 ## Evidence checklist for submission
 
 - [ ] Hedera bond contract address + HashScan link + KYC/transfer tx hashes
