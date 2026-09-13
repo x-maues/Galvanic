@@ -26,8 +26,15 @@ Fill in `SEPOLIA_RPC_URL` and `SEPOLIA_DEPLOYER_KEY` in `../.env`, then:
 npm run deploy:sepolia
 ```
 
-Copy the printed `SEPOLIA_MOCK_COLLATERAL` / `SEPOLIA_MOCK_DEBT` / `SEPOLIA_VAULT`
-addresses into `../.env`.
+This deploys the mock tokens, the vault, and `FirewallMarginExecutor` — wired to the
+vault as its `creExecutor` and to the confirmed production CRE KeystoneForwarder for
+Sepolia (`0xF8344CFd5c43616a4366C34E3EEE75af79a74482`, from Chainlink's own Forwarder
+Directory) by default. Override with `SEPOLIA_CRE_FORWARDER` in `.env` if you need the
+`MockKeystoneForwarder` instead (`0x15fC6ae953E024d975e77382eEeC56A9101f9F88`, for
+onchain delivery under local `cre workflow simulate`).
+
+Copy the printed `SEPOLIA_MOCK_COLLATERAL` / `SEPOLIA_MOCK_DEBT` / `SEPOLIA_VAULT` /
+`SEPOLIA_EXECUTOR` addresses into `../.env`.
 
 ## Demo trigger
 

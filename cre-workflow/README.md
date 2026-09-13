@@ -273,10 +273,18 @@ project with the actual Firewall Margin vault this workflow delivers to:
   (4 vault + 3 executor).
 
 This means the only things left before `onchain.enabled: true` actually works end to
-end are external: a funded Sepolia key, the vault/executor pair deployed
-(`contracts-sepolia/scripts/deploy.ts` now deploys and wires both automatically when
-`SEPOLIA_CRE_FORWARDER` is set), and CRE deploy access. The contract-side logic and
-its ABI-compatibility with this workflow's report encoding are no longer assumptions.
+end are external: a funded Sepolia key, and the vault/executor pair deployed
+(`contracts-sepolia/scripts/deploy.ts` now deploys and wires both automatically,
+defaulting to the confirmed production KeystoneForwarder address for Sepolia,
+`0xF8344CFd5c43616a4366C34E3EEE75af79a74482` — sourced from Chainlink's own
+Forwarder Directory, docs.chain.link/cre/guides/workflow/using-evm-client/
+forwarder-directory-ts), and CRE deploy access. The contract-side logic and its
+ABI-compatibility with this workflow's report encoding are no longer assumptions.
+
+Note: that same directory also lists a separate `MockKeystoneForwarder`
+(`0x15fC6ae953E024d975e77382eEeC56A9101f9F88`) for use when `onchain.enabled` is
+exercised under local `cre workflow simulate` rather than a real DON — use that
+address instead if wiring up onchain delivery for local simulation testing.
 
 ## What's needed to go from simulation to live testnet deployment
 

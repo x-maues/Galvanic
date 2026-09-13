@@ -27,30 +27,30 @@ async function main() {
   console.log("CryptoMarginVault:", await vault.getAddress());
 
   // The CRE Forwarder is the only address allowed to call FirewallMarginExecutor.onReport.
-  // CONFIRM the current Sepolia KeystoneForwarder address at deploy time (see CRE docs /
-  // `cre-workflow/README.md`) before relying on the env default below.
-  const forwarderAddress = process.env.SEPOLIA_CRE_FORWARDER;
-  if (!forwarderAddress) {
-    console.log(
-      "\nSEPOLIA_CRE_FORWARDER not set — skipping FirewallMarginExecutor deployment.\n" +
-        "Set it once you've confirmed the current CRE KeystoneForwarder address for Sepolia, then re-run."
-    );
-  } else {
-    const Executor = await ethers.getContractFactory("FirewallMarginExecutor");
-    const executor = await Executor.deploy(forwarderAddress, await vault.getAddress());
-    await executor.waitForDeployment();
-    console.log("FirewallMarginExecutor:", await executor.getAddress());
+  // Confirmed via Chainlink's own Forwarder Directory (docs.chain.link/cre/guides/workflow/
+  // using-evm-client/forwarder-directory-ts) as of this setup pass:
+  //   - Production (real DON-delivered reports):      0xF8344CFd5c43616a4366C34E3EEE75af79a74482
+  //   - Local `cre workflow simulate` w/ onchain.enabled (MockKeystoneForwarder):
+  //                                                     0x15fC6ae953E024d975e77382eEeC56A9101f9F88
+  // Re-verify against that page before a real deploy in case Chainlink rotates it.
+  const PRODUCTION_FORWARDER = "0xF8344CFd5c43616a4366C34E3EEE75af79a74482";
+  const forwarderAddress = process.env.SEPOLIA_CRE_FORWARDER || PRODUCTION_FORWARDER;
 
-    const tx = await vault.setExecutor(await executor.getAddress());
-    await tx.wait();
-    console.log("Vault executor wired to FirewallMarginExecutor.");
-    console.log(`SEPOLIA_EXECUTOR=${await executor.getAddress()}`);
-  }
+  const Executor = await ethers.getContractFactory("FirewallMarginExecutor");
+  const executor = await Executor.deploy(forwarderAddress, await vault.getAddress());
+  await executor.waitForDeployment();
+  console.log("FirewallMarginExecutor:", await executor.getAddress());
+  console.log("  forwarder:", forwarderAddress);
+
+  const tx = await vault.setExecutor(await executor.getAddress());
+  await tx.wait();
+  console.log("Vault executor wired to FirewallMarginExecutor.");
 
   console.log("\nSet these in your .env:");
   console.log(`SEPOLIA_MOCK_COLLATERAL=${await collateral.getAddress()}`);
   console.log(`SEPOLIA_MOCK_DEBT=${await debt.getAddress()}`);
   console.log(`SEPOLIA_VAULT=${await vault.getAddress()}`);
+  console.log(`SEPOLIA_EXECUTOR=${await executor.getAddress()}`);
 }
 
 main().catch((error) => {
