@@ -1,0 +1,17 @@
+# ==========================================================================
+# CRE PROJECT SETTINGS FILE
+# ==========================================================================
+# The workflow does not perform an onchain write by default (see
+# firewall-margin/config.staging.json -> onchain.enabled). The Sepolia RPC
+# below is wired up so flipping that flag on is the only change needed later
+# — no extra project setup required.
+staging-settings:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://ethereum-sepolia-rpc.publicnode.com
+
+# ==========================================================================
+production-settings:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://ethereum-sepolia-rpc.publicnode.com

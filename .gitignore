@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+!.env.example
+dist/
+build/
+.next/
+out/
+artifacts/
+cache/
+typechain-types/
+*.log
+.DS_Store
+cre-workflow/**/secrets.json
+# upstream reference clone, not our submission code
+cre-workflow/cre-templates/
+cre-workflow/firewall-margin-workflow/firewall-margin/node_modules/

@@ -1,0 +1,23 @@
+{
+  "name": "contracts-hedera",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Firewall Margin - Hedera ATS RWA issuance script (protected collateral leg)",
+  "type": "commonjs",
+  "scripts": {
+    "issue-asset": "tsx issue-asset.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@hashgraph/asset-tokenization-contracts": "8.0.0",
+    "@hashgraph/sdk": "^2.64.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
