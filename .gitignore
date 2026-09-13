@@ -6,6 +6,9 @@ dist/
 build/
 .next/
 out/
+.vercel/
+next-env.d.ts
+*.tsbuildinfo
 artifacts/
 cache/
 typechain-types/
@@ -17,3 +20,7 @@ cre-workflow/cre-templates/
 cre-workflow/firewall-margin-workflow/firewall-margin/node_modules/
 # generated evidence file from contracts-hedera/issue-asset.ts (contains a throwaway demo key)
 contracts-hedera/issued-asset.json
+
+# internal/dev notes -- only the root README is public-facing
+*.md
+!/README.md

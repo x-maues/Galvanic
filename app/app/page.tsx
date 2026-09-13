@@ -154,7 +154,7 @@ export default function Page() {
       <header className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <div className="h-3 w-3 bg-signal" />
-          <span className="mono text-xs uppercase tracking-[0.2em] text-paper/50">Firewall Margin</span>
+          <span className="mono text-xs uppercase tracking-[0.2em] text-paper/50">Galvanic</span>
         </div>
         <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.05]">
           Cross-margin,

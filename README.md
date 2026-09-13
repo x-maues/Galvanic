@@ -1,43 +1,66 @@
-# Firewall Margin
+# Galvanic
 
-Cross-margin without cross-contamination. See [`docs/architecture.md`](docs/architecture.md)
-for the full design, [`docs/demo-script.md`](docs/demo-script.md) for the submission demo
-flow, and [`CLAUDE.md`](CLAUDE.md) for the mission/scope this project is built against.
+Cross-margin without cross-contamination.
 
-## Status — live on testnet
+Most margin accounts treat all collateral as one pool. That works fine until one asset in
+that pool gets volatile — a crypto position crashes, a stablecoin depegs — and whatever
+logic reacts to it doesn't distinguish between "this needs to be liquidated" and "this is a
+regulated, compliance-gated asset that has nothing to do with the thing that just moved."
+Once collateral is pooled, a bad event anywhere in the pool can end up touching all of it.
 
-| Piece | Status |
-|---|---|
-| Protected RWA leg (Hedera ATS) | **Live on Hedera testnet.** Real Bond ("Firewall Margin Short-Term Note", FWM-NOTE) issued via the live ATS Factory/BLR, plus a real KYC-gated compliant transfer. Contract: [`0x96c21F5900f7587549A4207B12232cA752072c25`](https://hashscan.io/testnet/contract/0x96c21F5900f7587549A4207B12232cA752072c25). Evidence + all tx hashes in `contracts-hedera/issued-asset.json`. |
-| Liquid crypto leg (Sepolia) | **Live on Sepolia.** `CryptoMarginVault` + `FirewallMarginExecutor` deployed and wired to the confirmed production CRE KeystoneForwarder. Vault: [`0xDB2bE1A08CD5730307AA9178A5B3c499d4d57bb0`](https://sepolia.etherscan.io/address/0xDB2bE1A08CD5730307AA9178A5B3c499d4d57bb0). Demo account has a real funded position (HF 1.33). 7/7 contract tests passing. |
-| Confidential risk brain (Chainlink CRE) | **Simulating live end to end against the real deployed contracts.** Verified full cycle: healthy verdict → real on-chain stress tx → `liquidate:true` verdict with correct amount/reason → healed back. Real `handlerInTee`/`getSecrets`/`usingTheDons()`, 8/8 unit tests. Onchain delivery wired and ABI-matched to the real vault/executor, disabled pending CRE deploy access (simulation evidence satisfies the track requirement). |
-| Cross-protocol exposure (The Graph) | **Fully live.** `subgraph/exposure.ts` runs one Messari Lending/CDP (schema 3.1.0) query, unmodified, against 4 real subgraph deployments (Aave v3 Ethereum + Base, Compound v3, Spark Lend) via the real Subgraph Studio gateway. 3/4 return live results now (`ok: true`); Aave v3 Base currently reports `subgraph not found: no allocations` — no indexer is presently serving that specific deployment on the network, a real Graph Network condition, not a bug — and is isolated per-protocol exactly as designed rather than failing the whole aggregate. Wired into the CRE workflow's `exposureApiUrl` and confirmed working end to end with live data. |
-| Frontend (`app/`) | **Live, verified end to end against real deployed contracts and real HTTP requests** — not mocked. Screenshotted in both the healthy and stressed/liquidatable states. |
+Galvanic keeps those risks structurally apart instead of relying on policy to keep them
+apart. Volatile collateral sits in its own vault, on its own chain. Protected collateral —
+in this build, a tokenized bond — sits on Hedera, under its own compliance rules, in a
+contract that the liquidation path has no function call into. A confidential risk engine
+watches both sides and decides whether the volatile leg needs to be acted on. It can't
+reach the protected leg even if it wanted to — there's no bridge, no shared owner, no
+shared custody. Isolation by construction, not by permission.
 
-## Running the live demo
+## How it's built
 
-```bash
-# 1. exposure server (Graph)
-cd subgraph && bun run server.ts &
-
-# 2. position server (reads the real Sepolia vault + serves exposure passthrough)
-cd cre-workflow/firewall-margin-workflow/firewall-margin && bun mock-server.js &
-
-# 3. frontend
-cd app && npm run dev
-```
-
-Then open http://localhost:3000 — both panels show real deployed contract state. Use
-"Trigger stress" / "Heal" to move the crypto leg, and "Run confidential decision" to
-invoke the real CRE workflow simulation.
+- **Hedera / Asset Tokenization Studio** — the protected leg. A real security token with
+  real compliance controls: KYC-gated holders, controlled transfers, issuer-managed
+  lifecycle. Not a flag that says "compliant," an actual enforced gate.
+- **Ethereum (Sepolia) vault** — the liquid leg. Deposit, borrow, get liquidated if your
+  position breaks policy. The liquidation function has exactly one caller: the risk
+  engine's on-chain identity. Nothing else can invoke it.
+- **Chainlink CRE, confidential compute** — the decision itself, run inside a TEE. It
+  combines private risk thresholds with live position data and the account's exposure
+  elsewhere, and returns one verdict. The thresholds and raw inputs never leave the
+  enclave — only the decision does.
+- **The Graph** — where "exposure elsewhere" comes from. One query, written once against
+  a standardized lending schema, run against several real lending protocols at once, so
+  the risk engine knows what the account is already carrying before it decides anything.
 
 ## Repo layout
 
 ```
-contracts-hedera/    Hedera ATS integration — protected RWA leg (live)
-contracts-sepolia/   Crypto margin vault — liquid, liquidatable leg (live)
-cre-workflow/         Chainlink CRE Confidential Workflow — the risk brain
-subgraph/             Graph queries against a Messari standardized subgraph
-app/                  Next.js demo frontend
-docs/                 Architecture notes, demo script, evidence log
+contracts-hedera/    Hedera ATS integration — the protected leg
+contracts-sepolia/   Margin vault + liquidation executor — the liquid leg
+cre-workflow/         The confidential risk engine (Chainlink CRE)
+subgraph/             Cross-protocol exposure queries (The Graph)
+app/                  Frontend
 ```
+
+## Running it
+
+Each directory is a standalone package. Broadly:
+
+```bash
+# contracts (Hardhat)
+cd contracts-sepolia && npm install && npx hardhat test
+
+# Hedera issuance script
+cd contracts-hedera && npm install && npm run issue-asset
+
+# confidential workflow (Bun + Chainlink CRE CLI)
+cd cre-workflow/firewall-margin-workflow/firewall-margin && bun install && bun test
+
+# exposure service
+cd subgraph && bun install && bun run server.ts
+
+# frontend
+cd app && npm install && npm run dev
+```
+
+You'll need your own testnet keys and API keys — see `.env.example` at the repo root.
