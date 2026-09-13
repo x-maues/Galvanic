@@ -1,7 +1,7 @@
 {
   "schedule": "0 */1 * * * *",
   "positionApiUrl": "http://127.0.0.1:8788/firewall-margin/position",
-  "exposureApiUrl": "http://127.0.0.1:8788/firewall-margin/exposure",
+  "exposureApiUrl": "http://127.0.0.1:8790/firewall-margin/exposure?account=0x1111111111111111111111111111111111111111",
   "secretsIds": {
     "minHealthFactorId": "MIN_HEALTH_FACTOR",
     "liquidationLtvThresholdId": "LIQUIDATION_LTV_THRESHOLD",
